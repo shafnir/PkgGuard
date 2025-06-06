@@ -14,6 +14,7 @@ import { TrustScore } from '../types';
  */
 export class TrustHoverProvider implements vscode.HoverProvider {
     private readonly scores: Map<string, TrustScore>;
+    private verboseState: Map<string, boolean> = new Map();
 
     constructor() {
         this.scores = new Map();
@@ -65,8 +66,8 @@ export class TrustHoverProvider implements vscode.HoverProvider {
         const { evidence, scoreReasons } = score;
         const markdown = new vscode.MarkdownString();
 
-        // Trust level indicator (smaller circle)
-        let levelEmoji = score.level === 'high' ? '<span style="font-size:0.6em">🟢</span>' : score.level === 'medium' ? '<span style="font-size:0.6em">🟡</span>' : score.level === 'low' ? '<span style="font-size:0.6em">🔴</span>' : '<span style="font-size:0.6em">⚪</span>';
+        // Trust level indicator (original color circles)
+        let levelEmoji = score.level === 'high' ? '🟢' : score.level === 'medium' ? '🟡' : score.level === 'low' ? '🔴' : '⚪';
         markdown.appendMarkdown(`### ${levelEmoji} Trust Score: ${score.score === null ? 'Ignored' : score.score}\n\n`);
 
         // If ignored, show ignore message and note, no risk factors or evidence
@@ -82,7 +83,7 @@ export class TrustHoverProvider implements vscode.HoverProvider {
             return markdown;
         }
 
-        // Dominant reasons (top package, typosquat, etc.)
+        // Key Factors (always show for JS and Python)
         if (scoreReasons && scoreReasons.length > 0) {
             markdown.appendMarkdown('**Key Factors:**\n');
             for (const reason of scoreReasons) {
@@ -94,7 +95,7 @@ export class TrustHoverProvider implements vscode.HoverProvider {
         if (score.riskFactors && score.riskFactors.length > 0) {
             markdown.appendMarkdown('**Risk Factors:**\n');
             for (const risk of score.riskFactors) {
-                const emoji = risk.color === 'red' ? '<span style="font-size:0.6em">🔴</span>' : '<span style="font-size:0.6em">🟡</span>';
+                const emoji = risk.color === 'red' ? '🔴' : '🟠';
                 markdown.appendMarkdown(`- ${emoji} ${risk.text}\n`);
             }
         }
@@ -126,9 +127,17 @@ export class TrustHoverProvider implements vscode.HoverProvider {
         if (score.level === 'high') {
             markdown.appendMarkdown('\n**This is a widely trusted and established package.**\n');
         } else if (score.level === 'medium') {
-            markdown.appendMarkdown('\n**This package has some risk factors. Please review the details before using.**\n');
+            if (score.riskFactors && score.riskFactors.length > 0) {
+                markdown.appendMarkdown('\n**This package has some risk factors. Please review the details before using.**\n');
+            } else {
+                markdown.appendMarkdown('\n**This package is not extremely popular or well-established, but no specific risks were detected.**\n');
+            }
         } else {
-            markdown.appendMarkdown('\n**This package is considered risky. Manual review and caution are strongly advised.**\n');
+            if (score.riskFactors && score.riskFactors.length > 0) {
+                markdown.appendMarkdown('\n**This package is considered risky. Manual review and caution are strongly advised.**\n');
+            } else {
+                markdown.appendMarkdown('\n**This package is not widely trusted or established, but no specific risks were detected.**\n');
+            }
         }
 
         // Add Ignore action for red/orange packages (UI only, logic next)

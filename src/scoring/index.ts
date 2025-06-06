@@ -224,6 +224,13 @@ export class ScoringEngine {
                 } else if (stats.stars > 1000) {
                     githubStars = 5;
                 }
+                // Always check for last commit > 2 years
+                if (stats.lastCommit > 0) {
+                    const monthsAgo = (Date.now() - stats.lastCommit) / (1000 * 60 * 60 * 24 * 30);
+                    if (monthsAgo > 24) {
+                        scoreReasons.push('🕒 No updates on GitHub for over 2 years.');
+                    }
+                }
             }
         }
         boost += githubStars;
@@ -274,6 +281,9 @@ export class ScoringEngine {
                 ]
             };
         }
+
+        // Always round the score before returning
+        score = Math.round(score);
 
         return {
             packageName: name,

@@ -94,6 +94,7 @@ export class PyPIAdapter implements RegistryAdapter {
                 author_email?: string;
                 project_urls?: Record<string, string>;
                 home_page?: string;
+                description?: string;
             };
             releases: Record<string, Array<{ upload_time: string }>>;
         };
@@ -123,17 +124,10 @@ export class PyPIAdapter implements RegistryAdapter {
             // Ignore PePy errors, fallback to 0
         }
 
-        // Determine maintainer count
-        let maintainerCount = 0;
-        if (Array.isArray(data.info.maintainers) && data.info.maintainers.length > 0) {
-            maintainerCount = data.info.maintainers.length;
-        } else if (data.info.author || data.info.author_email) {
-            maintainerCount = 1;
-        }
-
-        // Extract GitHub repo URL
+        // Extract GitHub repo URL (more aggressive)
         let githubRepo: string | undefined = undefined;
         const urls = data.info.project_urls || {};
+        // Check all project_urls values for github.com
         for (const key of Object.keys(urls)) {
             const url = urls[key];
             if (typeof url === 'string' && url.includes('github.com')) {
@@ -141,8 +135,43 @@ export class PyPIAdapter implements RegistryAdapter {
                 break;
             }
         }
+        // Check home_page for github.com even if project_urls exists
         if (!githubRepo && typeof data.info.home_page === 'string' && data.info.home_page.includes('github.com')) {
             githubRepo = data.info.home_page;
+        }
+        // As a last resort, try to parse author or description for github.com
+        if (!githubRepo && typeof data.info.author === 'string' && data.info.author.includes('github.com')) {
+            githubRepo = data.info.author;
+        }
+        if (!githubRepo && typeof data.info.description === 'string' && data.info.description.includes('github.com')) {
+            const match = data.info.description.match(/https?:\/\/github\.com\/[\w\-\.]+\/[\w\-\.]+/);
+            if (match) githubRepo = match[0];
+        }
+
+        // Determine maintainer count
+        let maintainerCount = 0;
+        if (Array.isArray(data.info.maintainers) && data.info.maintainers.length > 0) {
+            maintainerCount = data.info.maintainers.length;
+        } else if (data.info.author || data.info.author_email) {
+            maintainerCount = 1;
+        }
+        // If GitHub repo found, try to fetch contributors as maintainers
+        if (githubRepo) {
+            try {
+                const repoMatch = githubRepo.match(/github\.com\/([\w\-\.]+)\/([\w\-\.]+)/);
+                if (repoMatch) {
+                    const owner = repoMatch[1];
+                    const repo = repoMatch[2];
+                    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contributors?per_page=100`;
+                    const resp = await fetch(apiUrl);
+                    if (resp.ok) {
+                        const contributors = await resp.json();
+                        if (Array.isArray(contributors) && contributors.length > maintainerCount) {
+                            maintainerCount = contributors.length;
+                        }
+                    }
+                }
+            } catch { }
         }
 
         const result: RegistryInfo = {

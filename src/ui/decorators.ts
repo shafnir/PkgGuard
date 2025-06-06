@@ -21,22 +21,28 @@ export class TrustDecorators {
         // Create decoration types with different colors
         this.highTrustDecoration = vscode.window.createTextEditorDecorationType({
             after: {
-                contentText: '🟢',
-                margin: '0 0 0 1em'
+                contentText: '•',
+                color: '#2ecc40', // green
+                margin: '0 0 0 1em',
+                fontWeight: 'bold'
             }
         });
 
         this.mediumTrustDecoration = vscode.window.createTextEditorDecorationType({
             after: {
-                contentText: '🟡',
-                margin: '0 0 0 1em'
+                contentText: '•',
+                color: '#ffb400', // yellow/orange
+                margin: '0 0 0 1em',
+                fontWeight: 'bold'
             }
         });
 
         this.lowTrustDecoration = vscode.window.createTextEditorDecorationType({
             after: {
-                contentText: '🔴',
-                margin: '0 0 0 1em'
+                contentText: '•',
+                color: '#ff4136', // red
+                margin: '0 0 0 1em',
+                fontWeight: 'bold'
             }
         });
     }

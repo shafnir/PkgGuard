@@ -13,6 +13,10 @@ import { ScoringEngine, loadIgnoreFile } from './scoring';
 import { TrustDecorators } from './ui/decorators';
 import { TrustHoverProvider } from './ui/hovers';
 import { PackageName, TrustScore } from './types';
+import { JavaScriptDetector } from './detectors/javascript';
+import { NpmAdapter } from './adapters/npm';
+import { JavaScriptScoringEngine } from './scoring/javascript';
+import { TOP_NPM_PACKAGES } from './adapters/npm-top';
 
 let decorators: TrustDecorators | undefined;
 let hoverProvider: TrustHoverProvider | undefined;
@@ -40,30 +44,33 @@ export function activate(context: vscode.ExtensionContext) {
         loadIgnoreFile(workspaceFolders[0].uri.fsPath);
     }
 
-    // Register hover provider for Python
+    // Load top npm packages for JS/TS
+    JavaScriptScoringEngine.setTopPackages(TOP_NPM_PACKAGES);
+
+    // Register hover provider for Python and JavaScript/TypeScript
     context.subscriptions.push(
-        vscode.languages.registerHoverProvider('python', hoverProvider)
+        vscode.languages.registerHoverProvider(['python', 'javascript', 'typescript'], hoverProvider)
     );
 
-    // Listen to document open/change events
+    // Listen to document open/change events for Python and JS/TS
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument(doc => {
-            if (doc.languageId === 'python') {
+            if (['python', 'javascript', 'typescript'].includes(doc.languageId)) {
                 debouncedValidate(doc);
             }
         })
     );
     context.subscriptions.push(
         vscode.workspace.onDidChangeTextDocument(e => {
-            if (e.document.languageId === 'python') {
+            if (['python', 'javascript', 'typescript'].includes(e.document.languageId)) {
                 debouncedValidate(e.document);
             }
         })
     );
 
-    // Validate all open Python files on activation
+    // Validate all open Python/JS/TS files on activation
     vscode.workspace.textDocuments.forEach(doc => {
-        if (doc.languageId === 'python') {
+        if (['python', 'javascript', 'typescript'].includes(doc.languageId)) {
             debouncedValidate(doc);
         }
     });
@@ -120,6 +127,22 @@ export function activate(context: vscode.ExtensionContext) {
     }));
 
     context.subscriptions.push(diagnosticCollection);
+
+    // Reapply decorations on window focus
+    context.subscriptions.push(vscode.window.onDidChangeWindowState(e => {
+        if (e.focused) {
+            const editor = vscode.window.activeTextEditor;
+            if (editor && ['python', 'javascript', 'typescript'].includes(editor.document.languageId)) {
+                debouncedValidate(editor.document);
+            }
+        }
+    }));
+    // Reapply decorations on active editor change
+    context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(editor => {
+        if (editor && ['python', 'javascript', 'typescript'].includes(editor.document.languageId)) {
+            debouncedValidate(editor.document);
+        }
+    }));
 }
 
 export function deactivate() {
@@ -190,10 +213,20 @@ async function validateAndDecorate(doc: vscode.TextDocument) {
         if (diagnosticCollection) diagnosticCollection.set(doc.uri, []);
         return;
     }
-
-    const detector = new PythonDetector();
-    const adapter = new PyPIAdapter();
-    const scoring = new ScoringEngine();
+    let detector: any;
+    let adapter: any;
+    let scoring: any;
+    if (doc.languageId === 'python') {
+        detector = new PythonDetector();
+        adapter = new PyPIAdapter();
+        scoring = new ScoringEngine();
+    } else if (doc.languageId === 'javascript' || doc.languageId === 'typescript') {
+        detector = new JavaScriptDetector();
+        adapter = new NpmAdapter();
+        scoring = new JavaScriptScoringEngine();
+    } else {
+        return;
+    }
 
     // Detect package names
     const packages: PackageName[] = detector.detect(doc.getText());
@@ -211,7 +244,7 @@ async function validateAndDecorate(doc: vscode.TextDocument) {
     const tasks = packages.map(pkg => async () => {
         let meta;
         try {
-            meta = await retryWithBackoff(() => adapter.meta(pkg.name));
+            meta = await retryWithBackoff(() => adapter.meta(pkg.name)) as import('./types').RegistryInfo;
         } catch {
             // If all retries fail, treat as validation failure
             meta = { exists: false, downloads: 0, latestRelease: 0, maintainerCount: 0, highVulnCount: 0 };
