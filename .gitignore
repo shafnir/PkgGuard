@@ -44,3 +44,7 @@ dist/**/*
 
 # ignore yarn.lock
 yarn.lock
+
+# Test files
+testaa*
+testbb*

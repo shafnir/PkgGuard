@@ -1,0 +1,52 @@
+# Exclude source TypeScript files and source maps
+src/**
+**/*.ts
+**/*.tsx
+**/*.map
+
+# Exclude tests and test configs
+test/**
+tests/**
+**/*.test.*
+**/*.spec.*
+jest.config.js
+
+# Exclude configs and dev tools
+.vscode/**
+.github/**
+.gitignore
+.eslintrc*
+tsconfig.json
+package-lock.json
+.npmrc
+
+# Exclude build output except the main bundle
+dist/**
+!dist/extension.js
+
+# Exclude node_modules except production dependencies (vsce handles this, but safe to include)
+node_modules/**
+
+# Exclude documentation (optional, keep README.md/CHANGELOG.md if you want them in the Marketplace)
+# README.md
+# CHANGELOG.md
+
+# Exclude SQLite DBs, logs, and other artifacts
+*.db
+*.log
+
+# Exclude VSCE and npm artifacts
+*.vsix
+npm-debug.log*
+yarn.lock
+
+# Exclude coverage and cache
+coverage/**
+.cache/**
+
+#Test files
+testaa.js
+testbb.py
+
+# cursor files
+.cursor/**

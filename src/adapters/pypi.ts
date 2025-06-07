@@ -127,25 +127,44 @@ export class PyPIAdapter implements RegistryAdapter {
         // Extract GitHub repo URL (more aggressive)
         let githubRepo: string | undefined = undefined;
         const urls = data.info.project_urls || {};
-        // Check all project_urls values for github.com
+        const homepage = data.info.home_page;
+        const description = data.info.description;
+
+        // Helper function to extract GitHub URL
+        const extractGitHubUrl = (url: string): string | undefined => {
+            if (!url) return undefined;
+            const githubRegex = /https?:\/\/(www\.)?github\.com\/([\w.-]+)\/([\w.-]+)(\/|$)/i;
+            const match = githubRegex.exec(url);
+            if (match) {
+                return `https://github.com/${match[2]}/${match[3]}`;
+            }
+            return undefined;
+        };
+
+        // Check project_urls first
         for (const key of Object.keys(urls)) {
             const url = urls[key];
-            if (typeof url === 'string' && url.includes('github.com')) {
-                githubRepo = url;
-                break;
+            if (typeof url === 'string') {
+                const repo = extractGitHubUrl(url);
+                if (repo) {
+                    githubRepo = repo;
+                    break;
+                }
             }
         }
-        // Check home_page for github.com even if project_urls exists
-        if (!githubRepo && typeof data.info.home_page === 'string' && data.info.home_page.includes('github.com')) {
-            githubRepo = data.info.home_page;
+
+        // Check home_page if no GitHub repo found
+        if (!githubRepo && typeof homepage === 'string') {
+            githubRepo = extractGitHubUrl(homepage);
         }
-        // As a last resort, try to parse author or description for github.com
-        if (!githubRepo && typeof data.info.author === 'string' && data.info.author.includes('github.com')) {
-            githubRepo = data.info.author;
-        }
-        if (!githubRepo && typeof data.info.description === 'string' && data.info.description.includes('github.com')) {
-            const match = data.info.description.match(/https?:\/\/github\.com\/[\w\-\.]+\/[\w\-\.]+/);
-            if (match) githubRepo = match[0];
+
+        // Check description as last resort
+        if (!githubRepo && typeof description === 'string') {
+            const githubRegex = /https?:\/\/(www\.)?github\.com\/([\w.-]+)\/([\w.-]+)(\/|$)/i;
+            const match = githubRegex.exec(description);
+            if (match) {
+                githubRepo = `https://github.com/${match[2]}/${match[3]}`;
+            }
         }
 
         // Determine maintainer count
@@ -180,7 +199,8 @@ export class PyPIAdapter implements RegistryAdapter {
             latestRelease,
             maintainerCount,
             highVulnCount: 0, // TODO: Implement vulnerability checking
-            githubRepo
+            githubRepo,
+            registryUrl: `https://pypi.org/project/${name}/`
         };
         this.metaCache.set(name, { data: result, timestamp: now });
         return result;

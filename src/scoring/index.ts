@@ -32,10 +32,18 @@ const PYTHON_STDLIB = new Set([
     'abc', 'aifc', 'argparse', 'array', 'ast', 'asynchat', 'asyncio', 'asyncore', 'atexit', 'audioop', 'base64', 'bdb', 'binascii', 'binhex', 'bisect', 'builtins', 'bz2', 'cProfile', 'calendar', 'cgi', 'cgitb', 'chunk', 'cmath', 'cmd', 'code', 'codecs', 'codeop', 'collections', 'colorsys', 'compileall', 'concurrent', 'configparser', 'contextlib', 'contextvars', 'copy', 'copyreg', 'crypt', 'csv', 'ctypes', 'curses', 'dataclasses', 'datetime', 'dbm', 'decimal', 'difflib', 'dis', 'distutils', 'doctest', 'email', 'encodings', 'ensurepip', 'enum', 'errno', 'faulthandler', 'fcntl', 'filecmp', 'fileinput', 'fnmatch', 'formatter', 'fractions', 'ftplib', 'functools', 'gc', 'getopt', 'getpass', 'gettext', 'glob', 'graphlib', 'grp', 'gzip', 'hashlib', 'heapq', 'hmac', 'html', 'http', 'imaplib', 'imghdr', 'imp', 'importlib', 'inspect', 'io', 'ipaddress', 'itertools', 'json', 'keyword', 'lib2to3', 'linecache', 'locale', 'logging', 'lzma', 'mailbox', 'mailcap', 'marshal', 'math', 'mimetypes', 'mmap', 'modulefinder', 'msilib', 'msvcrt', 'multiprocessing', 'netrc', 'nntplib', 'numbers', 'operator', 'optparse', 'os', 'ossaudiodev', 'parser', 'pathlib', 'pdb', 'pickle', 'pickletools', 'pipes', 'pkgutil', 'platform', 'plistlib', 'poplib', 'posix', 'pprint', 'profile', 'pstats', 'pty', 'pwd', 'py_compile', 'pyclbr', 'pydoc', 'queue', 'quopri', 'random', 're', 'readline', 'reprlib', 'resource', 'rlcompleter', 'runpy', 'sched', 'secrets', 'select', 'selectors', 'shelve', 'shlex', 'shutil', 'signal', 'site', 'smtpd', 'smtplib', 'sndhdr', 'socket', 'socketserver', 'spwd', 'sqlite3', 'ssl', 'stat', 'statistics', 'string', 'stringprep', 'struct', 'subprocess', 'sunau', 'symbol', 'symtable', 'sys', 'sysconfig', 'syslog', 'tabnanny', 'tarfile', 'telnetlib', 'tempfile', 'termios', 'test', 'textwrap', 'threading', 'time', 'timeit', 'tkinter', 'token', 'tokenize', 'trace', 'traceback', 'tracemalloc', 'tty', 'turtle', 'turtledemo', 'types', 'typing', 'unicodedata', 'unittest', 'urllib', 'uu', 'uuid', 'venv', 'warnings', 'wave', 'weakref', 'webbrowser', 'winreg', 'winsound', 'wsgiref', 'xdrlib', 'xml', 'xmlrpc', 'zipapp', 'zipfile', 'zipimport', 'zlib'
 ]);
 
+// Persistent workspace-level cache segmented by language
+const CACHE_FILE_NAME = '.pkgguard-cache.json';
+let cacheFilePath: string | null = null;
+let cacheData: any = {};
+
 /**
  * Scoring engine for package trust evaluation.
  */
 export class ScoringEngine {
+    private recentlyIgnored: Set<string> = new Set();
+    private cache: Map<string, { score: TrustScore; timestamp: number }> = new Map();
+
     /**
      * Set the top PyPI packages list.
      */
@@ -60,8 +68,14 @@ export class ScoringEngine {
      * @returns Trust score with evidence
      */
     public async calculateScore(name: string, info: RegistryInfo): Promise<TrustScore> {
+        // Aggressive GitHub detection
+        let githubRepo: string | undefined = info.githubRepo;
+        if (!githubRepo) {
+            githubRepo = this.extractGitHubRepoFromLinks(info, name) || undefined;
+        }
+
         // Check for ignored package
-        const ignore = isIgnoredPackage(name);
+        const ignore = this.isIgnoredPackage(name);
         if (ignore.ignored) {
             return {
                 packageName: name,
@@ -72,11 +86,27 @@ export class ScoringEngine {
                     downloads: 0,
                     releaseAge: 0,
                     multipleMaintainers: true,
-                    vulnerabilities: 0
+                    vulnerabilities: 0,
+                    maintainerCount: 0,
+                    registryUrl: '',
                 },
                 scoreReasons: ['⚪ This package is ignored by your configuration.' + (ignore.note ? ` Note: ${ignore.note}` : '')],
-                riskFactors: []
+                riskFactors: [],
+                githubRepo
             };
+        }
+
+        // Persistent cache check (python)
+        const ttl = (typeof process !== 'undefined' && process.env && process.env.PKG_GUARD_CACHE_TTL) ? parseInt(process.env.PKG_GUARD_CACHE_TTL) : 172800;
+        const cached = this.getCachedScore('python', name, ttl);
+
+        // Only use cache if the package wasn't just unignored
+        const wasIgnored = this.wasRecentlyIgnored(name);
+        if (cached && !wasIgnored) return cached;
+
+        // If package was just unignored or no cache, force a rescan
+        if (wasIgnored) {
+            this.clearRecentlyIgnored(name);
         }
 
         // Check for standard library
@@ -90,10 +120,13 @@ export class ScoringEngine {
                     downloads: 0,
                     releaseAge: 0,
                     multipleMaintainers: true,
-                    vulnerabilities: 0
+                    vulnerabilities: 0,
+                    maintainerCount: 0,
+                    registryUrl: '',
                 },
                 scoreReasons: ['📦 This is a Python standard library module and is always trusted.'],
-                riskFactors: []
+                riskFactors: [],
+                githubRepo
             };
         }
 
@@ -102,7 +135,8 @@ export class ScoringEngine {
             downloads: typeof info.downloads === 'number' ? info.downloads : 0,
             releaseAge: this.calculateReleaseAge(info.latestRelease),
             multipleMaintainers: info.maintainerCount >= 2,
-            vulnerabilities: info.highVulnCount
+            vulnerabilities: info.highVulnCount,
+            maintainerCount: info.maintainerCount
         };
 
         let score = this.computeScore(evidence);
@@ -111,6 +145,7 @@ export class ScoringEngine {
         const isTop = topPyPiPackages.has(name.toLowerCase());
         let topDownloads = 0;
         let releaseDate = '';
+        const riskFactors: { text: string; color: 'red' | 'orange' }[] = [];
 
         if (isTop && typeof topPyPiDownloads[name.toLowerCase()] === 'number') {
             topDownloads = topPyPiDownloads[name.toLowerCase()] || 0;
@@ -136,41 +171,48 @@ export class ScoringEngine {
             level = this.determineLevel(score);
         }
 
-        if (info.githubRepo) {
-            const stats = await fetchGitHubStats(info.githubRepo);
-            if (stats) {
-                if (stats.stars > 1000) {
+        // Fetch GitHub stats once if needed
+        let githubStats = null;
+        if (githubRepo) {
+            try {
+                githubStats = await fetchGitHubStats(githubRepo);
+            } catch { githubStats = null; }
+        }
+
+        if (githubStats) {
+            if (githubStats.rateLimited) {
+                scoreReasons.push('⚠️ GitHub API rate limit reached. GitHub-related risks could not be calculated.');
+            } else {
+                if (githubStats.stars > 1000) {
                     score += 10;
                     scoreReasons.push('⭐ Very popular on GitHub (>1000 stars).');
-                } else if (stats.stars > 100) {
+                } else if (githubStats.stars > 100) {
                     score += 5;
                     scoreReasons.push('⭐ Popular on GitHub (>100 stars).');
-                } else if (stats.stars < 10) {
+                } else if (githubStats.stars < 10) {
                     score -= 10;
                     scoreReasons.push('⭐ Very few GitHub stars (<10).');
                 }
-                if (stats.forks > 100) {
+                if (githubStats.forks > 100) {
                     score += 5;
                     scoreReasons.push('🍴 Frequently forked on GitHub (>100 forks).');
                 }
-                if (stats.lastCommit > 0) {
-                    const monthsAgo = (Date.now() - stats.lastCommit) / (1000 * 60 * 60 * 24 * 30);
+                if (githubStats.lastCommit > 0) {
+                    const monthsAgo = (Date.now() - githubStats.lastCommit) / (1000 * 60 * 60 * 24 * 30);
                     if (monthsAgo < 6) {
                         score += 5;
                         scoreReasons.push('🕒 Recently updated on GitHub (<6 months ago).');
-                    } else if (monthsAgo > 24) {
-                        score -= 10;
-                        scoreReasons.push('🕒 No updates on GitHub for over 2 years.');
                     }
                 }
-                score = Math.max(0, Math.min(100, score));
-                level = this.determineLevel(score);
             }
+            score = Math.max(0, Math.min(100, score));
+            level = this.determineLevel(score);
         }
 
         if (!evidence.exists) scoreReasons.push('❌ Package does not exist on PyPI.');
         if (evidence.downloads === 0 && !topDownloads) scoreReasons.push('📦 No download data available.');
-        if (evidence.releaseAge < 30) scoreReasons.push('⏰ Very recent release.');
+        if (evidence.releaseAge < 7 && evidence.releaseAge > 0) scoreReasons.push('⏰ Very recent release.');
+        if (evidence.downloads > 0 && evidence.downloads < 10000) scoreReasons.push('📦 Low download count (<10,000/week).');
         if (!evidence.multipleMaintainers) scoreReasons.push('👤 Only a single maintainer.');
         if (evidence.vulnerabilities > 0) scoreReasons.push('⚠️ Known vulnerabilities.');
 
@@ -179,92 +221,58 @@ export class ScoringEngine {
             level = this.determineLevel(score);
         }
 
-        if (isTop) {
-            const risks: string[] = [];
-            if (evidence.releaseAge < 30) risks.push('very recent release');
-            if (!evidence.multipleMaintainers) risks.push('only a single maintainer');
-            if (evidence.downloads === 0 && !topDownloads) risks.push('no download data');
-            if (scoreReasons.some(r => r.includes('No updates on GitHub for over 2 years.'))) risks.push('no updates on GitHub for over 2 years');
-            if (risks.length > 0) {
-                scoreReasons.push(`⚠️ Note: This top package has risk factors: ${risks.join(', ')}.`);
-            }
-        }
-
         // Risk factor classification
         const highRiskFactors: string[] = [];
         const mediumRiskFactors: string[] = [];
-        // High risk: no updates on GitHub for over 2 years, no download data
-        if (scoreReasons.some(r => r.includes('No updates on GitHub for over 2 years.'))) highRiskFactors.push('No updates on GitHub for over 2 years.');
+        let yearsAgo = null;
+        if (githubStats && githubStats.lastCommit > 0) {
+            const years = Math.floor((Date.now() - githubStats.lastCommit) / (1000 * 60 * 60 * 24 * 365));
+            yearsAgo = years;
+            if (years >= 2) {
+                highRiskFactors.push(`No updates on GitHub for over 2 years (last update: ${years} year${years === 1 ? '' : 's'} ago).`);
+            }
+        }
         if (evidence.downloads === 0 && !topDownloads) highRiskFactors.push('No download data available.');
-        // Medium risk: very recent release (now < 90 days), only a single maintainer
-        if (evidence.releaseAge < 90 && evidence.releaseAge > 0) mediumRiskFactors.push('Very recent release.');
+        if (evidence.releaseAge < 7 && evidence.releaseAge > 0) mediumRiskFactors.push('Very recent release.');
         if (!evidence.multipleMaintainers) mediumRiskFactors.push('Only a single maintainer.');
-        // Deduplicate and remove from medium if in high
+        if (evidence.downloads > 0 && evidence.downloads < 10000) mediumRiskFactors.push('Low download count (<10,000/week).');
         const uniqueHigh = Array.from(new Set(highRiskFactors));
         const uniqueMedium = Array.from(new Set(mediumRiskFactors.filter(f => !uniqueHigh.includes(f))));
-        // Remove old risk factor reasons from scoreReasons
-        let filteredScoreReasons = scoreReasons.filter(r => !r.includes('No updates on GitHub for over 2 years.') && !r.includes('No download data available.') && !r.includes('Very recent release.') && !r.includes('Only a single maintainer.') && !r.startsWith('⚠️ Note:'));
+        let filteredScoreReasons = scoreReasons.filter(r => !r.includes('No updates on GitHub for over 2 years') && !r.includes('No download data available.') && !r.includes('Very recent release.') && !r.includes('Only a single maintainer.'));
 
-        // --- New scoring logic ---
+        // Scoring logic (reuse from Python, can be tuned for npm)
         let boost = 0;
         if (isTop) boost += 30;
-        // Download bonuses
         if ((topDownloads || 0) > 100_000_000 || (evidence.downloads || 0) > 100_000_000) {
             boost += 20;
         } else if ((topDownloads || 0) > 10_000_000 || (evidence.downloads || 0) > 10_000_000) {
             boost += 10;
         }
-        // GitHub stars bonus
-        let githubStars = 0;
-        if (info.githubRepo) {
-            const stats = await fetchGitHubStats(info.githubRepo);
-            if (stats) {
-                if (stats.stars > 10000) {
-                    githubStars = 10;
-                } else if (stats.stars > 1000) {
-                    githubStars = 5;
-                }
-                // Always check for last commit > 2 years
-                if (stats.lastCommit > 0) {
-                    const monthsAgo = (Date.now() - stats.lastCommit) / (1000 * 60 * 60 * 24 * 30);
-                    if (monthsAgo > 24) {
-                        scoreReasons.push('🕒 No updates on GitHub for over 2 years.');
-                    }
-                }
-            }
-        }
-        boost += githubStars;
         // Use topDownloads if available for perfect package check
         const millionsOfDownloads = ((topDownloads || 0) > 1_000_000) || ((evidence.downloads || 0) > 1_000_000);
-        // Actively maintained: release < 1 year, recent GitHub commit < 1 year
         let activeRelease = false;
         if (info.latestRelease && info.latestRelease > 0) {
             const daysAgo = (Date.now() - info.latestRelease) / (1000 * 60 * 60 * 24);
             if (daysAgo < 365) activeRelease = true;
         }
         let activeGitHub = false;
-        if (info.githubRepo) {
-            const stats = await fetchGitHubStats(info.githubRepo);
-            if (stats && stats.lastCommit > 0) {
-                const daysAgo = (Date.now() - stats.lastCommit) / (1000 * 60 * 60 * 24);
-                if (daysAgo < 365) activeGitHub = true;
-            }
+        if (githubStats && githubStats.lastCommit > 0) {
+            const daysAgo = (Date.now() - githubStats.lastCommit) / (1000 * 60 * 60 * 24);
+            if (daysAgo < 365) activeGitHub = true;
         }
-        // Apply risk penalties
         let riskPenalty = 0;
         riskPenalty += uniqueHigh.length * 20;
         riskPenalty += uniqueMedium.length * 5;
-        // Compute base score
         let baseScore = this.computeScore(evidence) + boost - riskPenalty;
-        // Clamp perfect packages to 100
-        let isPerfect = isTop && millionsOfDownloads && activeRelease && activeGitHub && uniqueHigh.length === 0 && uniqueMedium.length === 0;
+        // Clamp perfect packages to 100, but if any risk factors exist, clamp to 95
+        let isPerfect = isTop && millionsOfDownloads && activeRelease && activeGitHub && evidence.multipleMaintainers && uniqueHigh.length === 0 && uniqueMedium.length === 0;
         score = isPerfect ? 100 : Math.max(0, Math.min(100, Math.round(baseScore)));
         level = this.determineLevel(score);
         // Merge risk factors for UI
-        const riskFactors = [
+        riskFactors.push(
             ...uniqueHigh.map(f => ({ text: f, color: 'red' as const })),
             ...uniqueMedium.map(f => ({ text: f, color: 'orange' as const }))
-        ];
+        );
 
         // Hallucination/Nonexistent package check
         if (!evidence.exists || info.latestRelease === 0) {
@@ -272,29 +280,33 @@ export class ScoringEngine {
                 packageName: name,
                 score: 0,
                 level: 'low',
-                evidence,
+                evidence: { ...evidence, registryUrl: info.registryUrl, githubRepo: info.githubRepo },
                 scoreReasons: filteredScoreReasons,
                 topDownloads,
                 releaseDate,
                 riskFactors: [
                     { text: 'This package does not exist on PyPI or has no releases. It may be a hallucination or typo. Manual research and verification is required.', color: 'red' }
-                ]
+                ],
+                githubRepo
             };
         }
 
         // Always round the score before returning
         score = Math.round(score);
 
-        return {
+        const result: TrustScore = {
             packageName: name,
-            score,
+            score: Math.round(score),
             level,
-            evidence,
+            evidence: { ...evidence, registryUrl: info.registryUrl, githubRepo: info.githubRepo },
             scoreReasons: filteredScoreReasons,
             topDownloads,
             releaseDate,
-            riskFactors
+            riskFactors,
+            githubRepo
         };
+        this.setCachedScore('python', name, result);
+        return result;
     }
 
     /**
@@ -386,13 +398,74 @@ export class ScoringEngine {
         }
         return matrix[aLen]![bLen]!;
     }
+
+    // Aggressive GitHub detection: extract GitHub repo from all available links
+    private extractGitHubRepoFromLinks(info: RegistryInfo, packageName: string): string | null {
+        const githubRegex = /https?:\/\/(www\.)?github\.com\/([\w.-]+)\/([\w.-]+)(\/|$)/i;
+        const links: string[] = [];
+        if (typeof (info as any).homepage === 'string') links.push((info as any).homepage);
+        if ((info as any).projectUrls && typeof (info as any).projectUrls === 'object') {
+            const projectUrls = (info as any).projectUrls;
+            if (projectUrls) {
+                for (const key in projectUrls) {
+                    if (typeof projectUrls[key] === 'string') links.push(projectUrls[key]);
+                }
+            }
+        }
+        for (const url of links) {
+            const match = githubRegex.exec(url);
+            if (match) {
+                // Only accept if repo name matches package name (case-insensitive, allow dashes/underscores)
+                const repoName = match[3]?.toLowerCase().replace(/[-_]/g, '') ?? '';
+                const pkgName = packageName.toLowerCase().replace(/[-_]/g, '');
+                if (repoName === pkgName) {
+                    return `https://github.com/${match[2]}/${match[3]}`;
+                }
+            }
+        }
+        return null;
+    }
+
+    private isIgnoredPackage(name: string): { ignored: boolean; note?: string } {
+        const note = ignoredPackages.get(name);
+        if (!note) {
+            return { ignored: false };
+        }
+        return { ignored: true, note };
+    }
+
+    private wasRecentlyIgnored(name: string): boolean {
+        return this.recentlyIgnored.has(name);
+    }
+
+    private clearRecentlyIgnored(name: string): void {
+        this.recentlyIgnored.delete(name);
+    }
+
+    private getCachedScore(language: string, name: string, ttl: number): TrustScore | null {
+        const key = `${language}:${name}`;
+        const cached = this.cache.get(key);
+        if (cached && Date.now() - cached.timestamp < ttl * 1000) {
+            return cached.score;
+        }
+        return null;
+    }
+
+    private setCachedScore(language: string, name: string, score: TrustScore): void {
+        const key = `${language}:${name}`;
+        this.cache.set(key, { score, timestamp: Date.now() });
+    }
 }
 
 export function loadIgnoreFile(workspaceRoot: string) {
-    ignoreFilePath = path.join(workspaceRoot, '.pkgguard-ignore');
+    const pathLib = require('path');
+    const fsLib = require('fs');
+    const guardDir = pathLib.join(workspaceRoot, '.pkgguard');
+    if (!fsLib.existsSync(guardDir)) fsLib.mkdirSync(guardDir);
+    ignoreFilePath = pathLib.join(guardDir, '.pkgguard-ignore');
     ignoredPackages.clear();
-    if (fs.existsSync(ignoreFilePath)) {
-        const lines = fs.readFileSync(ignoreFilePath, 'utf-8').split(/\r?\n/);
+    if (fsLib.existsSync(ignoreFilePath)) {
+        const lines = fsLib.readFileSync(ignoreFilePath, 'utf-8').split(/\r?\n/);
         for (const line of lines) {
             const trimmed = line.trim();
             if (!trimmed || trimmed.startsWith('#')) continue;
@@ -404,7 +477,7 @@ export function loadIgnoreFile(workspaceRoot: string) {
     }
     // Watch for changes
     if (ignoreFilePath) {
-        fs.watchFile(ignoreFilePath, { interval: 1000 }, () => loadIgnoreFile(workspaceRoot));
+        fsLib.watchFile(ignoreFilePath, { interval: 1000 }, () => loadIgnoreFile(workspaceRoot));
     }
 }
 
@@ -413,4 +486,60 @@ export function isIgnoredPackage(name: string): { ignored: boolean, note?: strin
         return { ignored: true, note: ignoredPackages.get(name) };
     }
     return { ignored: false };
+}
+
+export function loadCacheFile(workspaceRoot: string) {
+    const pathLib = require('path');
+    const fsLib = require('fs');
+    const guardDir = pathLib.join(workspaceRoot, '.pkgguard');
+    if (!fsLib.existsSync(guardDir)) fsLib.mkdirSync(guardDir);
+    cacheFilePath = pathLib.join(guardDir, CACHE_FILE_NAME);
+    if (fsLib.existsSync(cacheFilePath)) {
+        try {
+            cacheData = JSON.parse(fsLib.readFileSync(cacheFilePath, 'utf-8'));
+        } catch {
+            cacheData = {};
+        }
+    } else {
+        cacheData = {};
+    }
+}
+
+export function getCachedScore(language: string, packageName: string, ttlSeconds: number): any | null {
+    if (!cacheData[language] || !cacheData[language][packageName]) return null;
+    const entry = cacheData[language][packageName];
+    if (!entry.timestamp || (Date.now() - entry.timestamp) / 1000 > ttlSeconds) return null;
+    return entry.score;
+}
+
+export function setCachedScore(language: string, packageName: string, score: any) {
+    if (!cacheFilePath) return;
+    const pathLib = require('path');
+    const fsLib = require('fs');
+    if (!cacheData[language]) cacheData[language] = {};
+    cacheData[language][packageName] = { score, timestamp: Date.now() };
+    try {
+        fsLib.writeFileSync(cacheFilePath, JSON.stringify(cacheData, null, 2));
+    } catch { }
+}
+
+export function clearCacheFile(workspaceRoot: string) {
+    const pathLib = require('path');
+    const fsLib = require('fs');
+    const guardDir = pathLib.join(workspaceRoot, '.pkgguard');
+    const cachePath = pathLib.join(guardDir, CACHE_FILE_NAME);
+    if (fsLib.existsSync(cachePath)) {
+        fsLib.unlinkSync(cachePath);
+    }
+    cacheData = {};
+}
+
+export function removeCachedScore(language: string, packageName: string) {
+    if (cacheData[language] && cacheData[language][packageName]) {
+        delete cacheData[language][packageName];
+        if (cacheFilePath) {
+            const fsLib = require('fs');
+            fsLib.writeFileSync(cacheFilePath, JSON.stringify(cacheData, null, 2));
+        }
+    }
 } 

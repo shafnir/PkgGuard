@@ -22,11 +22,16 @@ let decorators: TrustDecorators | undefined;
 let hoverProvider: TrustHoverProvider | undefined;
 let diagnosticCollection: vscode.DiagnosticCollection | undefined;
 let debounceTimers: Map<string, NodeJS.Timeout> = new Map();
+let extensionEnabled: boolean = true;
+let statusBarItem: vscode.StatusBarItem | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
     if (!decorators) decorators = new TrustDecorators();
     if (!hoverProvider) hoverProvider = new TrustHoverProvider();
     if (!diagnosticCollection) diagnosticCollection = vscode.languages.createDiagnosticCollection('pkg-guard');
+
+    // Read initial enabled state
+    extensionEnabled = vscode.workspace.getConfiguration().get('pkgGuard.enabled', true);
 
     // Fetch and cache the top PyPI packages list
     fetch('https://hugovk.github.io/top-pypi-packages/top-pypi-packages.min.json')
@@ -41,7 +46,12 @@ export function activate(context: vscode.ExtensionContext) {
     // Load .pkgguard-ignore file
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (workspaceFolders && workspaceFolders.length > 0 && workspaceFolders[0]) {
-        loadIgnoreFile(workspaceFolders[0].uri.fsPath);
+        const fsPath = workspaceFolders[0].uri.fsPath;
+        const guardDir = require('path').join(fsPath, '.pkgguard');
+        if (!require('fs').existsSync(guardDir)) require('fs').mkdirSync(guardDir);
+        loadIgnoreFile(fsPath);
+        // Load persistent cache file
+        require('./scoring').loadCacheFile(fsPath);
     }
 
     // Load top npm packages for JS/TS
@@ -76,53 +86,134 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // Register ignore/unignore commands
-    context.subscriptions.push(vscode.commands.registerCommand('pkgguard.ignorePackage', async () => {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) return;
-        const doc = editor.document;
-        const selection = editor.selection;
-        const wordRange = doc.getWordRangeAtPosition(selection.active);
-        if (!wordRange) return;
-        const packageName = doc.getText(wordRange);
+    context.subscriptions.push(vscode.commands.registerCommand('pkgguard.ignorePackage', async (packageNameArg?: string) => {
+        if (!packageNameArg) {
+            vscode.window.showErrorMessage('PkgGuard: Could not determine package to ignore. Please use the hover UI.');
+            return;
+        }
+        const packageName = packageNameArg;
         const note = await vscode.window.showInputBox({ prompt: 'Optional: Add a note for why you are ignoring this package.' });
         // Append to .pkgguard-ignore
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (workspaceFolders && workspaceFolders.length > 0 && workspaceFolders[0]) {
             const fsPath = workspaceFolders[0].uri.fsPath;
-            const ignorePath = require('path').join(fsPath, '.pkgguard-ignore');
+            const guardDir = require('path').join(fsPath, '.pkgguard');
+            if (!require('fs').existsSync(guardDir)) require('fs').mkdirSync(guardDir);
+            const ignorePath = require('path').join(guardDir, '.pkgguard-ignore');
             let line = packageName;
             if (note && note.trim()) line += ' # ' + note.trim();
             require('fs').appendFileSync(ignorePath, `\n${line}`);
             loadIgnoreFile(fsPath);
-            // Refresh decorations
-            vscode.window.visibleTextEditors.forEach(e => {
-                if (e.document.languageId === 'python') debouncedValidate(e.document);
+            // Update cache to store 'ignored' TrustScore
+            const { setCachedScore } = require('./scoring');
+            setCachedScore('python', packageName, {
+                packageName,
+                score: null,
+                level: 'ignored',
+                evidence: { exists: true, downloads: 0, releaseAge: 0, multipleMaintainers: true, vulnerabilities: 0, maintainerCount: 0 },
+                scoreReasons: ['⚪ This package is ignored by your configuration.' + (note ? ` Note: ${note}` : '')],
+                riskFactors: []
             });
+            setCachedScore('javascript', packageName, {
+                packageName,
+                score: null,
+                level: 'ignored',
+                evidence: { exists: true, downloads: 0, releaseAge: 0, multipleMaintainers: true, vulnerabilities: 0, maintainerCount: 0 },
+                scoreReasons: ['⚪ This package is ignored by your configuration.' + (note ? ` Note: ${note}` : '')],
+                riskFactors: []
+            });
+            // Refresh decorations for all supported languages
+            vscode.window.visibleTextEditors.forEach(e => {
+                if (['python', 'javascript', 'typescript'].includes(e.document.languageId)) debouncedValidate(e.document);
+            });
+            vscode.window.showInformationMessage(`PkgGuard: Package '${packageName}' is now ignored.`);
         }
     }));
-    context.subscriptions.push(vscode.commands.registerCommand('pkgguard.unignorePackage', async () => {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) return;
-        const doc = editor.document;
-        const selection = editor.selection;
-        const wordRange = doc.getWordRangeAtPosition(selection.active);
-        if (!wordRange) return;
-        const packageName = doc.getText(wordRange);
+    context.subscriptions.push(vscode.commands.registerCommand('pkgguard.unignorePackage', async (packageNameArg?: string) => {
+        if (!packageNameArg) {
+            vscode.window.showErrorMessage('PkgGuard: Could not determine package to unignore. Please use the hover UI.');
+            return;
+        }
+        const packageName = packageNameArg;
         // Remove from .pkgguard-ignore
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (workspaceFolders && workspaceFolders.length > 0 && workspaceFolders[0]) {
             const fsPath = workspaceFolders[0].uri.fsPath;
-            const ignorePath = require('path').join(fsPath, '.pkgguard-ignore');
+            const guardDir = require('path').join(fsPath, '.pkgguard');
+            if (!require('fs').existsSync(guardDir)) require('fs').mkdirSync(guardDir);
+            const ignorePath = require('path').join(guardDir, '.pkgguard-ignore');
             if (require('fs').existsSync(ignorePath)) {
                 const lines = require('fs').readFileSync(ignorePath, 'utf-8').split(/\r?\n/);
                 const filtered = lines.filter((line: string) => !line.trim().startsWith(packageName));
                 require('fs').writeFileSync(ignorePath, filtered.join('\n'));
                 loadIgnoreFile(fsPath);
-                // Refresh decorations
+                // Remove cache entry for this package
+                const { removeCachedScore } = require('./scoring');
+                removeCachedScore('python', packageName);
+                removeCachedScore('javascript', packageName);
+                // Refresh decorations for all supported languages
                 vscode.window.visibleTextEditors.forEach(e => {
-                    if (e.document.languageId === 'python') debouncedValidate(e.document);
+                    if (['python', 'javascript', 'typescript'].includes(e.document.languageId)) debouncedValidate(e.document);
                 });
+                vscode.window.showInformationMessage(`PkgGuard: Package '${packageName}' is no longer ignored.`);
             }
+        }
+    }));
+
+    // Register clear cache command
+    context.subscriptions.push(vscode.commands.registerCommand('pkg-guard.clearCache', async () => {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (workspaceFolders && workspaceFolders.length > 0 && workspaceFolders[0]) {
+            const fsPath = workspaceFolders[0].uri.fsPath;
+            require('./scoring').clearCacheFile(fsPath);
+            require('./scoring').loadCacheFile(fsPath);
+            // Refresh all open editors
+            vscode.window.visibleTextEditors.forEach(e => {
+                if (['python', 'javascript', 'typescript'].includes(e.document.languageId)) debouncedValidate(e.document);
+            });
+            vscode.window.showInformationMessage('PkgGuard: Cache cleared. All trust scores will be recalculated.');
+        }
+    }));
+
+    // Status bar toggle button
+    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    statusBarItem.command = 'pkg-guard.toggleEnabled';
+    function updateStatusBar() {
+        if (!statusBarItem) return;
+        if (extensionEnabled) {
+            statusBarItem!.text = '$(shield) PkgGuard: On';
+            statusBarItem!.color = '#2ecc40'; // green
+            statusBarItem!.tooltip = 'PkgGuard is enabled. Click to disable.';
+        } else {
+            statusBarItem!.text = '$(shield) PkgGuard: Off';
+            statusBarItem!.color = '#888888'; // gray
+            statusBarItem!.tooltip = 'PkgGuard is disabled. Click to enable.';
+        }
+        statusBarItem!.show();
+    }
+    updateStatusBar();
+    context.subscriptions.push(statusBarItem);
+
+    // Update status bar on toggle
+    context.subscriptions.push(vscode.commands.registerCommand('pkg-guard.toggleEnabled', async () => {
+        const config = vscode.workspace.getConfiguration();
+        const current = config.get('pkgGuard.enabled', true);
+        await config.update('pkgGuard.enabled', !current, vscode.ConfigurationTarget.Workspace);
+        extensionEnabled = !current;
+        updateStatusBar();
+        if (!extensionEnabled) {
+            // Clear all decorations and diagnostics
+            vscode.window.visibleTextEditors.forEach(editor => {
+                if (decorators) decorators.clearDecorations(editor);
+            });
+            if (diagnosticCollection) diagnosticCollection.clear();
+            vscode.window.showInformationMessage('PkgGuard: Extension disabled. All trust badges and diagnostics are hidden.');
+        } else {
+            // Re-validate all open editors
+            vscode.window.visibleTextEditors.forEach(e => {
+                if (['python', 'javascript', 'typescript'].includes(e.document.languageId)) debouncedValidate(e.document);
+            });
+            vscode.window.showInformationMessage('PkgGuard: Extension enabled. Trust badges and diagnostics are active.');
         }
     }));
 
@@ -208,6 +299,13 @@ async function runWithConcurrency<T>(tasks: (() => Promise<T>)[], limit: number)
  * Detect, validate, score, and decorate imports in a Python document.
  */
 async function validateAndDecorate(doc: vscode.TextDocument) {
+    if (!extensionEnabled) return;
+    // Always load cache before scoring
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (workspaceFolders && workspaceFolders.length > 0 && workspaceFolders[0]) {
+        const fsPath = workspaceFolders[0].uri.fsPath;
+        require('./scoring').loadCacheFile(fsPath);
+    }
     const editor = vscode.window.visibleTextEditors.find(e => e.document === doc);
     if (!editor || !decorators || !hoverProvider || !diagnosticCollection) {
         if (diagnosticCollection) diagnosticCollection.set(doc.uri, []);
@@ -216,18 +314,20 @@ async function validateAndDecorate(doc: vscode.TextDocument) {
     let detector: any;
     let adapter: any;
     let scoring: any;
+    let language: string;
     if (doc.languageId === 'python') {
         detector = new PythonDetector();
         adapter = new PyPIAdapter();
         scoring = new ScoringEngine();
+        language = 'python';
     } else if (doc.languageId === 'javascript' || doc.languageId === 'typescript') {
         detector = new JavaScriptDetector();
         adapter = new NpmAdapter();
         scoring = new JavaScriptScoringEngine();
+        language = 'javascript';
     } else {
         return;
     }
-
     // Detect package names
     const packages: PackageName[] = detector.detect(doc.getText());
     if (packages.length === 0) {
@@ -235,23 +335,39 @@ async function validateAndDecorate(doc: vscode.TextDocument) {
         if (diagnosticCollection) diagnosticCollection.set(doc.uri, []);
         return;
     }
-
-    // Prepare validation tasks with retry and concurrency limiting
+    // Per-package state
     const results: Array<{ score: TrustScore; range: vscode.Range }> = [];
     const trustScores: TrustScore[] = [];
     const diagnostics: vscode.Diagnostic[] = [];
-
-    const tasks = packages.map(pkg => async () => {
-        let meta;
-        try {
-            meta = await retryWithBackoff(() => adapter.meta(pkg.name)) as import('./types').RegistryInfo;
-        } catch {
-            // If all retries fail, treat as validation failure
-            meta = { exists: false, downloads: 0, latestRelease: 0, maintainerCount: 0, highVulnCount: 0 };
-        }
-        const score = await scoring.calculateScore(pkg.name, meta);
+    const rangeMap: Map<string, vscode.Range> = new Map();
+    // Helper to update UI for a single package
+    function updateUIForPackage(pkgName: string, score: TrustScore, range: vscode.Range) {
+        results.push({ score, range });
         trustScores.push(score);
-        // Place badge at the end of the import line
+        if (decorators && editor) decorators.applyDecorations(editor, results);
+        if (hoverProvider) hoverProvider.updateScores(trustScores);
+        if (score.level === 'low') {
+            diagnostics.push(new vscode.Diagnostic(
+                range,
+                `Low trust score for package "${pkgName}": ${score.score}. Consider reviewing this package.`,
+                vscode.DiagnosticSeverity.Warning
+            ));
+        } else if (score.level === 'ignored') {
+            // No diagnostic for ignored
+        } else if (score.level !== 'high' && !score.evidence.exists) {
+            diagnostics.push(new vscode.Diagnostic(
+                range,
+                `Package "${pkgName}" does not exist on registry (or could not be validated after retries).`,
+                vscode.DiagnosticSeverity.Warning
+            ));
+        }
+        if (diagnosticCollection) diagnosticCollection.set(doc.uri, diagnostics);
+    }
+    // For each package, check cache and update UI immediately if cached
+    const pendingAsync: Array<Promise<void>> = [];
+    const { getCachedScore } = require('./scoring');
+    const ttl = 172800; // 48h, or get from config if needed
+    for (const pkg of packages) {
         let range: vscode.Range;
         if (doc && doc.lineCount >= pkg.line) {
             const lineText = doc.lineAt(pkg.line - 1).text;
@@ -265,37 +381,39 @@ async function validateAndDecorate(doc: vscode.TextDocument) {
                 new vscode.Position(pkg.line - 1, pkg.column - 1 + pkg.name.length)
             );
         }
-        results.push({ score, range });
-        // Add diagnostic for low trust or non-existent package
-        const diagRange = new vscode.Range(
-            new vscode.Position(pkg.line - 1, pkg.column - 1),
-            new vscode.Position(pkg.line - 1, pkg.column - 1 + pkg.name.length)
-        );
-        if (!meta.exists) {
-            diagnostics.push(new vscode.Diagnostic(
-                diagRange,
-                `Package "${pkg.name}" does not exist on PyPI (or could not be validated after retries).`,
-                vscode.DiagnosticSeverity.Warning
-            ));
-        } else if (score.level === 'low') {
-            diagnostics.push(new vscode.Diagnostic(
-                diagRange,
-                `Low trust score for package "${pkg.name}": ${score.score}. Consider reviewing this package.`,
-                vscode.DiagnosticSeverity.Warning
-            ));
+        rangeMap.set(pkg.name, range);
+        // Try cache directly
+        const cachedScore = getCachedScore(language, pkg.name, ttl);
+        if (cachedScore) {
+            updateUIForPackage(pkg.name, cachedScore, range);
+        } else {
+            // Not cached or expired, fetch meta and score async
+            const asyncTask = (async () => {
+                let meta;
+                try {
+                    meta = await retryWithBackoff(() => adapter.meta(pkg.name)) as import('./types').RegistryInfo;
+                } catch {
+                    meta = { exists: false, downloads: 0, latestRelease: 0, maintainerCount: 0, highVulnCount: 0 };
+                }
+                // Ensure registryUrl is always set
+                if (!meta.registryUrl) {
+                    if (language === 'python') {
+                        meta.registryUrl = `https://pypi.org/project/${pkg.name}/`;
+                    } else if (language === 'javascript') {
+                        meta.registryUrl = `https://www.npmjs.com/package/${pkg.name}`;
+                    }
+                }
+                const score = await scoring.calculateScore(pkg.name, meta);
+                updateUIForPackage(pkg.name, score, range);
+            })();
+            pendingAsync.push(asyncTask);
         }
-    });
-
-    // Run tasks with concurrency limit (5 at a time)
-    await runWithConcurrency(tasks, 5);
-
-    // Apply decorations and update hover provider
-    if (decorators) decorators.applyDecorations(editor, results);
-    if (hoverProvider) hoverProvider.updateScores(trustScores);
-    if (diagnosticCollection) diagnosticCollection.set(doc.uri, diagnostics);
+    }
+    await Promise.all(pendingAsync);
 }
 
 function debouncedValidate(doc: vscode.TextDocument) {
+    if (!extensionEnabled) return;
     if (!debounceTimers) return;
     const key = doc.uri.toString();
     const timer = debounceTimers.get(key);
@@ -305,5 +423,5 @@ function debouncedValidate(doc: vscode.TextDocument) {
     debounceTimers.set(key, setTimeout(() => {
         validateAndDecorate(doc).catch(() => { });
         debounceTimers.delete(key);
-    }, 500)); // 1 second debounce
+    }, 200)); // 1 second debounce
 } 

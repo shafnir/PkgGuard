@@ -35,6 +35,8 @@ export interface RegistryInfo {
   highVulnCount: number;
   /** GitHub repository URL (if available) */
   githubRepo?: string;
+  /** Canonical registry URL for the package (for UI links) */
+  registryUrl?: string;
 }
 
 /**
@@ -54,6 +56,9 @@ export interface TrustScore {
     releaseAge: number;
     multipleMaintainers: boolean;
     vulnerabilities: number;
+    maintainerCount?: number;
+    registryUrl?: string;
+    githubRepo?: string;
   };
   /** Main reasons for the score (for UI explanation) */
   scoreReasons?: string[];
@@ -67,6 +72,8 @@ export interface TrustScore {
   mediumRiskFactors?: string[];
   /** Risk factors for UI, each with text and color */
   riskFactors?: { text: string; color: 'red' | 'orange' }[];
+  /** GitHub repo URL (if available, for direct link in UI) */
+  githubRepo?: string;
 }
 
 /**

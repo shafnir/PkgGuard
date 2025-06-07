@@ -68,7 +68,8 @@ export class TrustHoverProvider implements vscode.HoverProvider {
 
         // Trust level indicator (original color circles)
         let levelEmoji = score.level === 'high' ? '🟢' : score.level === 'medium' ? '🟡' : score.level === 'low' ? '🔴' : '⚪';
-        markdown.appendMarkdown(`### ${levelEmoji} Trust Score: ${score.score === null ? 'Ignored' : score.score}\n\n`);
+        let scoreDisplay = score.score === null ? 'Ignored' : Number.isInteger(score.score) ? score.score : Math.round(score.score);
+        markdown.appendMarkdown(`### ${levelEmoji} Trust Score: ${scoreDisplay}\n\n`);
 
         // If ignored, show ignore message and note, no risk factors or evidence
         if (score.level === 'ignored') {
@@ -78,7 +79,7 @@ export class TrustHoverProvider implements vscode.HoverProvider {
                 }
             }
             // Add Unignore action (UI only, logic next)
-            markdown.appendMarkdown('\n[Unignore package](command:pkgguard.unignorePackage)\n');
+            markdown.appendMarkdown(`\n[Unignore package](command:pkgguard.unignorePackage?%5B%22${encodeURIComponent(score.packageName)}%22%5D)\n`);
             markdown.isTrusted = true;
             return markdown;
         }
@@ -117,7 +118,17 @@ export class TrustHoverProvider implements vscode.HoverProvider {
         } else {
             markdown.appendMarkdown(`- ⏰ Release date: N/A\n`);
         }
-        markdown.appendMarkdown(`- 👥 Maintainers: ${evidence.multipleMaintainers ? 'Multiple' : 'Single'}\n`);
+        // Maintainers: show actual count if available
+        const maintCount = (score as any).evidence.maintainerCount ?? (score as any).maintainerCount;
+        if (typeof maintCount === 'number' && maintCount > 1) {
+            markdown.appendMarkdown(`- 👥 Maintainers: ${maintCount}\n`);
+        } else if (typeof maintCount === 'number' && maintCount === 1) {
+            markdown.appendMarkdown(`- 👥 Maintainers: Single\n`);
+        } else if (evidence.multipleMaintainers) {
+            markdown.appendMarkdown(`- 👥 Maintainers: Multiple\n`);
+        } else {
+            markdown.appendMarkdown(`- 👥 Maintainers: Single\n`);
+        }
 
         if (evidence.vulnerabilities > 0) {
             markdown.appendMarkdown(`- ⚠️ High severity vulnerabilities: ${evidence.vulnerabilities}\n`);
@@ -140,9 +151,22 @@ export class TrustHoverProvider implements vscode.HoverProvider {
             }
         }
 
-        // Add Ignore action for red/orange packages (UI only, logic next)
+        // Always add an extra newline before links
+        markdown.appendMarkdown('\n');
+
+        // Add registry link (only if present in evidence)
+        if (score.evidence && (score.evidence as any).registryUrl) {
+            const registryUrl = (score.evidence as any).registryUrl;
+            const isPyPI = registryUrl.includes('pypi.org');
+            markdown.appendMarkdown(`[🔗 View on ${isPyPI ? 'PyPI' : 'npm'}](${registryUrl})`);
+        }
+        // Add GitHub link (if present, on same line as registry link)
+        if ((score as any).githubRepo) {
+            markdown.appendMarkdown(` | [🐙 GitHub](${(score as any).githubRepo})\n`);
+        }
+        // Add Ignore/Unignore action (always on its own line, after links)
         if (score.level === 'low' || score.level === 'medium') {
-            markdown.appendMarkdown('\n[Ignore package](command:pkgguard.ignorePackage)\n');
+            markdown.appendMarkdown(`\n[Ignore package](command:pkgguard.ignorePackage?%5B%22${encodeURIComponent(score.packageName)}%22%5D)\n`);
         }
 
         markdown.isTrusted = true;

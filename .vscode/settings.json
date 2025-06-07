@@ -41,5 +41,6 @@
     "type": "highlight",
     "coveredHighlightColor": "rgba(0,255,0,0.2)",
     "uncoveredHighlightColor": "rgba(255,0,0,0.2)"
-  }
+  },
+  "pkgGuard.enabled": true
 } 
