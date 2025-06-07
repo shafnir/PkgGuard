@@ -8,7 +8,7 @@ PkgGuard analyzes your import statements and gives you real-time trust scores, r
 > **Note:** PkgGuard is designed to protect you from AI hallucinations and package authenticity issues. It does **not** scan for known CVEs or vulnerabilities. Instead, it helps you avoid fake, typo-squatted, or suspicious packages by scoring their trustworthiness. No tool can promise 100% security—PkgGuard is your smart first line of defense, not a silver bullet. Use it as a savvy dev, and always review critical dependencies!
 
 ## 🗺️ High-Level Architecture
-![PkgGuard Architecture](docs/architecture.png)
+![PkgGuard Architecture](https://raw.githubusercontent.com/shafnir/PkgGuard/refs/heads/main/docs/architecture.png)
 
 ## ✨ Features
 - **Trust Badges:** Inline trust scores for every import in your code.
@@ -42,3 +42,4 @@ PkgGuard analyzes your import statements and gives you real-time trust scores, r
 ---
 
 _Developed with ❤️ for the open source community._ 
+![Connect with me on Linkedin!](https://www.linkedin.com/in/amitshafnir)
