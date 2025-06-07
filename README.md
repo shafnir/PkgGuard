@@ -42,4 +42,3 @@ PkgGuard analyzes your import statements and gives you real-time trust scores, r
 ---
 
 _Developed with ❤️ for the open source community._ 
-[Connect with me on Linkedin!](https://www.linkedin.com/in/amitshafnir)
