@@ -8,6 +8,7 @@
     "url": "https://github.com/shafnir/PkgGuard"
   },
   "icon": "images/pkgguard-icon.png",
+  "publisher": "shafnir",
   "license": "MIT",
   "engines": {
     "vscode": "^1.89.0",

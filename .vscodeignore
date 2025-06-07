@@ -50,3 +50,6 @@ testbb.py
 
 # cursor files
 .cursor/**
+
+# local pkgguard cache and ignore file
+.pkgguard/** 

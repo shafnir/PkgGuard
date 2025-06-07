@@ -48,3 +48,9 @@ yarn.lock
 # Test files
 testaa*
 testbb*
+
+# cache file
+.pkgguard/**
+
+# cursor rules
+.cursor/**
