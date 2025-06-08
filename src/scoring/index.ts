@@ -10,6 +10,7 @@ import { RegistryInfo, TrustScore } from '../types';
 import { fetchGitHubStats } from '../adapters/github';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as vscode from 'vscode';
 
 /**
  * Scoring weights for different factors.
@@ -37,12 +38,26 @@ const CACHE_FILE_NAME = '.pkgguard-cache.json';
 let cacheFilePath: string | null = null;
 let cacheData: any = {};
 
+// Global storage for when no workspace is available
+let globalStoragePath: string | null = null;
+
+export function setGlobalStoragePath(path: string) {
+    globalStoragePath = path;
+}
+
+function getStoragePath(): string | null {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (workspaceFolders && workspaceFolders.length > 0 && workspaceFolders[0]) {
+        return workspaceFolders[0].uri.fsPath;
+    }
+    return globalStoragePath;
+}
+
 /**
  * Scoring engine for package trust evaluation.
  */
 export class ScoringEngine {
     private recentlyIgnored: Set<string> = new Set();
-    private cache: Map<string, { score: TrustScore; timestamp: number }> = new Map();
 
     /**
      * Set the top PyPI packages list.
@@ -98,7 +113,10 @@ export class ScoringEngine {
 
         // Persistent cache check (python)
         const ttl = (typeof process !== 'undefined' && process.env && process.env.PKG_GUARD_CACHE_TTL) ? parseInt(process.env.PKG_GUARD_CACHE_TTL) : 172800;
-        const cached = this.getCachedScore('python', name, ttl);
+        // Always reload cache before checking
+        const storagePath = getStoragePath();
+        if (storagePath) loadCacheFile(storagePath);
+        const cached = getCachedScore('python', name, ttl);
 
         // Only use cache if the package wasn't just unignored
         const wasIgnored = this.wasRecentlyIgnored(name);
@@ -305,7 +323,7 @@ export class ScoringEngine {
             riskFactors,
             githubRepo
         };
-        this.setCachedScore('python', name, result);
+        setCachedScore('python', name, result);
         return result;
     }
 
@@ -441,26 +459,18 @@ export class ScoringEngine {
     private clearRecentlyIgnored(name: string): void {
         this.recentlyIgnored.delete(name);
     }
-
-    private getCachedScore(language: string, name: string, ttl: number): TrustScore | null {
-        const key = `${language}:${name}`;
-        const cached = this.cache.get(key);
-        if (cached && Date.now() - cached.timestamp < ttl * 1000) {
-            return cached.score;
-        }
-        return null;
-    }
-
-    private setCachedScore(language: string, name: string, score: TrustScore): void {
-        const key = `${language}:${name}`;
-        this.cache.set(key, { score, timestamp: Date.now() });
-    }
 }
 
 export function loadIgnoreFile(workspaceRoot: string) {
     const pathLib = require('path');
     const fsLib = require('fs');
-    const guardDir = pathLib.join(workspaceRoot, '.pkgguard');
+    const storagePath = getStoragePath();
+    if (!storagePath) {
+        ignoredPackages.clear();
+        return;
+    }
+
+    const guardDir = pathLib.join(storagePath, '.pkgguard');
     if (!fsLib.existsSync(guardDir)) fsLib.mkdirSync(guardDir);
     ignoreFilePath = pathLib.join(guardDir, '.pkgguard-ignore');
     ignoredPackages.clear();
@@ -477,7 +487,7 @@ export function loadIgnoreFile(workspaceRoot: string) {
     }
     // Watch for changes
     if (ignoreFilePath) {
-        fsLib.watchFile(ignoreFilePath, { interval: 1000 }, () => loadIgnoreFile(workspaceRoot));
+        fsLib.watchFile(ignoreFilePath, { interval: 1000 }, () => loadIgnoreFile(storagePath));
     }
 }
 
@@ -491,7 +501,13 @@ export function isIgnoredPackage(name: string): { ignored: boolean, note?: strin
 export function loadCacheFile(workspaceRoot: string) {
     const pathLib = require('path');
     const fsLib = require('fs');
-    const guardDir = pathLib.join(workspaceRoot, '.pkgguard');
+    const storagePath = getStoragePath();
+    if (!storagePath) {
+        cacheData = {};
+        return;
+    }
+
+    const guardDir = pathLib.join(storagePath, '.pkgguard');
     if (!fsLib.existsSync(guardDir)) fsLib.mkdirSync(guardDir);
     cacheFilePath = pathLib.join(guardDir, CACHE_FILE_NAME);
     if (fsLib.existsSync(cacheFilePath)) {
@@ -506,6 +522,8 @@ export function loadCacheFile(workspaceRoot: string) {
 }
 
 export function getCachedScore(language: string, packageName: string, ttlSeconds: number): any | null {
+    const storagePath = getStoragePath();
+    if (storagePath) loadCacheFile(storagePath);
     if (!cacheData[language] || !cacheData[language][packageName]) return null;
     const entry = cacheData[language][packageName];
     if (!entry.timestamp || (Date.now() - entry.timestamp) / 1000 > ttlSeconds) return null;
@@ -513,9 +531,16 @@ export function getCachedScore(language: string, packageName: string, ttlSeconds
 }
 
 export function setCachedScore(language: string, packageName: string, score: any) {
-    if (!cacheFilePath) return;
     const pathLib = require('path');
     const fsLib = require('fs');
+    const storagePath = getStoragePath();
+    if (storagePath) loadCacheFile(storagePath);
+    if (!cacheFilePath) {
+        if (storagePath) loadCacheFile(storagePath);
+    }
+    if (!cacheFilePath) return;
+    const dir = pathLib.dirname(cacheFilePath);
+    if (!fsLib.existsSync(dir)) fsLib.mkdirSync(dir, { recursive: true });
     if (!cacheData[language]) cacheData[language] = {};
     cacheData[language][packageName] = { score, timestamp: Date.now() };
     try {
@@ -526,7 +551,13 @@ export function setCachedScore(language: string, packageName: string, score: any
 export function clearCacheFile(workspaceRoot: string) {
     const pathLib = require('path');
     const fsLib = require('fs');
-    const guardDir = pathLib.join(workspaceRoot, '.pkgguard');
+    const storagePath = getStoragePath();
+    if (!storagePath) {
+        cacheData = {};
+        return;
+    }
+
+    const guardDir = pathLib.join(storagePath, '.pkgguard');
     const cachePath = pathLib.join(guardDir, CACHE_FILE_NAME);
     if (fsLib.existsSync(cachePath)) {
         fsLib.unlinkSync(cachePath);
@@ -535,10 +566,18 @@ export function clearCacheFile(workspaceRoot: string) {
 }
 
 export function removeCachedScore(language: string, packageName: string) {
+    const pathLib = require('path');
+    const fsLib = require('fs');
+    if (!cacheFilePath) {
+        const storagePath = getStoragePath();
+        if (storagePath) loadCacheFile(storagePath);
+    }
     if (cacheData[language] && cacheData[language][packageName]) {
         delete cacheData[language][packageName];
         if (cacheFilePath) {
-            const fsLib = require('fs');
+            // Ensure .pkgguard directory exists
+            const dir = pathLib.dirname(cacheFilePath);
+            if (!fsLib.existsSync(dir)) fsLib.mkdirSync(dir, { recursive: true });
             fsLib.writeFileSync(cacheFilePath, JSON.stringify(cacheData, null, 2));
         }
     }
