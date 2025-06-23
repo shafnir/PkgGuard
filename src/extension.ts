@@ -17,6 +17,8 @@ import { JavaScriptDetector } from './detectors/javascript';
 import { NpmAdapter } from './adapters/npm';
 import { JavaScriptScoringEngine } from './scoring/javascript';
 import { TOP_NPM_PACKAGES } from './adapters/npm-top';
+import { TerminalPackageMonitor } from './terminal/shell-integration';
+import { SimpleTerminalManager } from './terminal/simple-terminal';
 
 let decorators: TrustDecorators | undefined;
 let hoverProvider: TrustHoverProvider | undefined;
@@ -24,8 +26,11 @@ let diagnosticCollection: vscode.DiagnosticCollection | undefined;
 let debounceTimers: Map<string, NodeJS.Timeout> = new Map();
 let extensionEnabled: boolean = true;
 let statusBarItem: vscode.StatusBarItem | undefined;
+let terminalMonitor: TerminalPackageMonitor | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
+    console.log('PkgGuard: Extension activation started');
+    
     if (!decorators) decorators = new TrustDecorators();
     if (!hoverProvider) hoverProvider = new TrustHoverProvider();
     if (!diagnosticCollection) diagnosticCollection = vscode.languages.createDiagnosticCollection('pkg-guard');
@@ -83,6 +88,23 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Load top npm packages for JS/TS
     JavaScriptScoringEngine.setTopPackages(TOP_NPM_PACKAGES);
+
+    // Initialize terminal monitoring if enabled
+    const terminalEnabled = vscode.workspace.getConfiguration().get('pkgGuard.terminal.enabled', true);
+    if (terminalEnabled) {
+        terminalMonitor = new TerminalPackageMonitor();
+        terminalMonitor.activate(context);
+    }
+
+    // Register simple terminal commands
+    console.log('PkgGuard: Registering simple terminal commands');
+    try {
+        SimpleTerminalManager.registerCommands(context);
+        console.log('PkgGuard: Simple terminal commands registered successfully');
+    } catch (error) {
+        console.error('PkgGuard: Failed to register simple terminal commands:', error);
+        vscode.window.showErrorMessage(`PkgGuard: Failed to register terminal commands: ${(error as Error).message}`);
+    }
 
     // Register hover provider for Python and JavaScript/TypeScript
     context.subscriptions.push(
@@ -316,9 +338,13 @@ export function deactivate() {
         diagnosticCollection.clear();
         diagnosticCollection.dispose();
     }
+    if (terminalMonitor) {
+        terminalMonitor.dispose();
+    }
     hoverProvider = undefined;
     decorators = undefined;
     diagnosticCollection = undefined;
+    terminalMonitor = undefined;
 }
 
 /**
@@ -342,6 +368,7 @@ async function retryWithBackoff<T>(fn: () => Promise<T>, maxAttempts = 3, initia
 /**
  * Helper to run async tasks with concurrency limit.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function runWithConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
     const results: T[] = [];
     let i = 0;

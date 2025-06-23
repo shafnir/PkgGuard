@@ -53,3 +53,7 @@ testbb.py
 
 # local pkgguard cache and ignore file
 .pkgguard/** 
+
+# guidelines and intergration docs
+docs/DEVELOPMENT_GUIDELINES.md
+docs/TERMINAL_INTEGRATION.md

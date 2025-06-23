@@ -52,3 +52,7 @@ testbb*
 # Ignore PkgGuard and Cursor folders
 .cursor/
 .pkgguard/
+
+# guidelines and intergration docs
+docs/DEVELOPMENT_GUIDELINES.md
+docs/TERMINAL_INTEGRATION.md

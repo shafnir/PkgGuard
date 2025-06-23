@@ -2,7 +2,7 @@
   "name": "pkgguard",
   "displayName": "PkgGuard",
   "description": "VS Code extension that guards against hallucinated or malicious package imports",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/shafnir/PkgGuard"
@@ -15,7 +15,6 @@
     "node": ">=20.0.0"
   },
   "categories": [
-    "Security",
     "Other"
   ],
   "activationEvents": [
@@ -55,6 +54,14 @@
       {
         "command": "pkgguard.unignorePackage",
         "title": "PkgGuard: Unignore Package"
+      },
+      {
+        "command": "pkgguard.createTerminal",
+        "title": "PkgGuard: Create Terminal"
+      },
+      {
+        "command": "pkgguard.toggleSecurityMode",
+        "title": "PkgGuard: Toggle Security Mode"
       }
     ],
     "configuration": {
@@ -69,6 +76,22 @@
           "type": "number",
           "default": 172800,
           "description": "Cache TTL in seconds (48 hours)"
+        },
+        "pkgGuard.securityMode": {
+          "type": "string",
+          "enum": [
+            "interactive",
+            "monitor",
+            "block",
+            "disabled"
+          ],
+          "default": "interactive",
+          "description": "Security mode for package installations: interactive (ask for approval), monitor (show warnings but allow), block (automatically block risky packages), disabled (no security checks)"
+        },
+        "pkgGuard.terminal.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable terminal package monitoring for regular VS Code terminals"
         }
       }
     }
@@ -79,7 +102,7 @@
     "watch": "tsc -watch -p ./",
     "lint": "eslint src --ext ts",
     "test": "jest",
-    "package": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
+    "package": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --external:node-pty --format=cjs --platform=node",
     "pretest": "npm run compile"
   },
   "devDependencies": {
@@ -101,6 +124,7 @@
   },
   "dependencies": {
     "node-fetch": "^3.3.2",
+    "node-pty": "^1.0.0",
     "sqlite3": "^5.1.7",
     "ws": "^8.16.0"
   }
