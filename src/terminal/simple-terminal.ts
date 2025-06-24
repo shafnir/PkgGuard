@@ -33,10 +33,37 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
 
     constructor(private workspaceFolder?: vscode.WorkspaceFolder) {}
 
+    private fixOutputForPseudoterminal(data: string): string {
+        // Fix for VS Code Pseudoterminal display corruption while preserving formatting
+        
+        // The issue is that VS Code's pseudoterminal sometimes misinterprets 
+        // line endings and text positioning, causing excessive spacing
+        
+        // Solution: Ensure consistent line endings and add explicit carriage returns
+        // where needed to prevent cursor positioning issues
+        
+        return data
+            // Normalize line endings first
+            .replace(/\r\n/g, '\n')
+            .replace(/\r/g, '\n')
+            // Convert back to proper terminal format with explicit carriage returns
+            .replace(/\n/g, '\r\n')
+            // Ensure each line starts fresh (prevents cumulative spacing issues)
+            .split('\r\n')
+            .map(line => line.trimRight()) // Remove trailing spaces that can cause positioning issues
+            .join('\r\n');
+    }
+
+    private safeWriteEmitter(data: string) {
+        // Apply the fix to prevent display corruption while preserving all formatting
+        const fixedData = this.fixOutputForPseudoterminal(data);
+        this.writeEmitter.fire(fixedData);
+    }
+
     open(_initialDimensions: vscode.TerminalDimensions | undefined): void {
-        this.writeEmitter.fire('🛡️ \x1b[32mPkgGuard Smart Terminal\x1b[0m\r\n');
-        this.writeEmitter.fire('Full terminal functionality with security for package installations.\r\n');
-        this.writeEmitter.fire('Commands: \x1b[33mexit\x1b[0m, \x1b[33mclear\x1b[0m, or any system command. \x1b[33mCtrl+C\x1b[0m to exit.\r\n\r\n');
+        this.safeWriteEmitter('🛡️ \x1b[32mPkgGuard Smart Terminal\x1b[0m\r\n');
+        this.safeWriteEmitter('Full terminal functionality with security for package installations.\r\n');
+        this.safeWriteEmitter('Commands: \x1b[33mexit\x1b[0m, \x1b[33mclear\x1b[0m, or any system command. \x1b[33mCtrl+C\x1b[0m to exit.\r\n\r\n');
         this.showPrompt();
     }
 
@@ -51,7 +78,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     private showPrompt(): void {
         const cwd = this.workspaceFolder?.uri.fsPath || process.cwd();
         // Show full path like PowerShell
-        this.writeEmitter.fire(`\x1b[36m${cwd}>\x1b[0m `);
+        this.safeWriteEmitter(`\x1b[36m${cwd}>\x1b[0m `);
     }
 
     private translateCommand(command: string): string {
@@ -225,11 +252,13 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
 
         // Handle output
         this.runningProcess.stdout.on('data', (data: Buffer) => {
-            this.writeEmitter.fire(data.toString());
+            const output = data.toString();
+            this.safeWriteEmitter(output);
         });
 
         this.runningProcess.stderr.on('data', (data: Buffer) => {
-            this.writeEmitter.fire(`\x1b[31m${data.toString()}\x1b[0m`);
+            const output = data.toString();
+            this.safeWriteEmitter(`\x1b[31m${output}\x1b[0m`);
         });
 
         // Handle process exit
@@ -259,14 +288,15 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
             maxBuffer: 1024 * 1024, // 1MB buffer
             timeout: 30000 // 30 second timeout
         }, (error, stdout, stderr) => {
+            
             // Only display final output if we didn't get real-time output
             if (!hasRealTimeOutput) {
                 if (stdout) {
-                    this.writeEmitter.fire(stdout);
+                    this.safeWriteEmitter(stdout);
                 }
                 
                 if (stderr) {
-                    this.writeEmitter.fire(`\x1b[31m${stderr}\x1b[0m`);
+                    this.safeWriteEmitter(`\x1b[31m${stderr}\x1b[0m`);
                 }
             }
             
@@ -282,14 +312,14 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
         if (child.stdout) {
             child.stdout.on('data', (data: string) => {
                 hasRealTimeOutput = true;
-                this.writeEmitter.fire(data);
+                this.safeWriteEmitter(data);
             });
         }
 
         if (child.stderr) {
             child.stderr.on('data', (data: string) => {
                 hasRealTimeOutput = true;
-                this.writeEmitter.fire(`\x1b[31m${data}\x1b[0m`);
+                this.safeWriteEmitter(`\x1b[31m${data}\x1b[0m`);
             });
         }
 
