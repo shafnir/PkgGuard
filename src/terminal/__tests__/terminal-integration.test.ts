@@ -3,8 +3,6 @@
  */
 
 import { TerminalPackageMonitor } from '../shell-integration';
-import { TerminalDecorator } from '../decorators';
-import { TrustScore } from '../../types';
 
 describe('Terminal Integration', () => {
     describe('TerminalPackageMonitor', () => {
@@ -92,125 +90,7 @@ describe('Terminal Integration', () => {
         });
     });
 
-    describe('TerminalDecorator', () => {
-        const mockTrustScore: TrustScore = {
-            packageName: 'test-package',
-            score: 85,
-            level: 'high',
-            evidence: {
-                exists: true,
-                downloads: 100000,
-                releaseAge: 30,
-                multipleMaintainers: true,
-                vulnerabilities: 0,
-                maintainerCount: 5
-            }
-        };
-
-        test('should create trust badge with correct emoji and color', () => {
-            const badge = TerminalDecorator.createTrustBadge(mockTrustScore);
-            expect(badge).toContain('🟢');
-            expect(badge).toContain('85');
-            expect(badge).toContain('\x1b[32m'); // Green color
-            expect(badge).toContain('\x1b[0m');  // Reset color
-        });
-
-        test('should create trust badge for different trust levels', () => {
-            const testCases = [
-                { level: 'high' as const, emoji: '🟢', score: 90 },
-                { level: 'medium' as const, emoji: '🟡', score: 65 },
-                { level: 'low' as const, emoji: '🔴', score: 30 },
-                { level: 'ignored' as const, emoji: '⚪', score: null }
-            ];
-
-            testCases.forEach(({ level, emoji, score }) => {
-                const trustScore: TrustScore = {
-                    ...mockTrustScore,
-                    level,
-                    score
-                };
-                const badge = TerminalDecorator.createTrustBadge(trustScore);
-                expect(badge).toContain(emoji);
-            });
-        });
-
-        test('should decorate package name with trust indicator', () => {
-            const decorated = TerminalDecorator.decoratePackageName('requests', mockTrustScore);
-            expect(decorated).toContain('requests');
-            expect(decorated).toContain('🟢');
-            expect(decorated).toContain('\x1b[4m'); // Underscore
-        });
-
-        test('should create security report for multiple packages', () => {
-            const packages = [
-                {
-                    name: 'requests',
-                    score: { ...mockTrustScore, level: 'high' as const, score: 95 },
-                    ecosystem: 'python'
-                },
-                {
-                    name: 'suspicious-pkg',
-                    score: {
-                        ...mockTrustScore,
-                        level: 'low' as const,
-                        score: 15,
-                        riskFactors: [
-                            { text: 'Package does not exist', color: 'red' as const }
-                        ]
-                    },
-                    ecosystem: 'python'
-                }
-            ];
-
-            const report = TerminalDecorator.createSecurityReport(packages);
-            expect(report).toContain('PkgGuard Security Report');
-            expect(report).toContain('requests');
-            expect(report).toContain('suspicious-pkg');
-            expect(report).toContain('High risk: 1');
-            expect(report).toContain('Low risk: 1');
-        });
-
-        test('should create warning box for high-risk packages', () => {
-            const packages = ['fake-requests', 'malicious-lib'];
-            const warning = TerminalDecorator.createWarningBox(packages);
-            
-            expect(warning).toContain('SECURITY WARNING');
-            expect(warning).toContain('fake-requests');
-            expect(warning).toContain('malicious-lib');
-            expect(warning).toContain('╔');
-            expect(warning).toContain('╚');
-        });
-
-        test('should create success box for safe packages', () => {
-            const packages = ['requests', 'django', 'numpy'];
-            const success = TerminalDecorator.createSuccessBox(packages);
-            
-            expect(success).toContain('SECURITY CHECK PASSED');
-            expect(success).toContain('requests');
-            expect(success).toContain('django');
-            expect(success).toContain('numpy');
-        });
-
-        test('should create progress indicator', () => {
-            const progress = TerminalDecorator.createProgressIndicator(3, 5, 'requests');
-            expect(progress).toContain('60%');
-            expect(progress).toContain('requests');
-            expect(progress).toContain('█');
-            expect(progress).toContain('░');
-        });
-
-        test('should annotate command with package scores', () => {
-            const command = 'pip install requests django';
-            const packageScores = new Map([
-                ['requests', mockTrustScore],
-                ['django', { ...mockTrustScore, score: 75, level: 'medium' as const }]
-            ]);
-
-            const annotated = TerminalDecorator.annotateCommand(command, packageScores);
-            expect(annotated).toContain('requests 🟢');
-            expect(annotated).toContain('django 🟡');
-        });
-    });
+    // TerminalDecorator tests removed - that class was part of old implementation
 });
 
 // Mock VS Code API for testing
