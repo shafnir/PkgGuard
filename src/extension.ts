@@ -307,6 +307,44 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }));
 
+    // Register toggle security mode command
+    context.subscriptions.push(vscode.commands.registerCommand('pkgguard.toggleSecurityMode', async () => {
+        const config = vscode.workspace.getConfiguration();
+        const currentMode = config.get('pkgGuard.securityMode', 'interactive');
+        
+        // Cycle through security modes: interactive -> monitor -> block -> disabled -> interactive
+        const modes = ['interactive', 'monitor', 'block', 'disabled'];
+        const currentIndex = modes.indexOf(currentMode as string);
+        const nextIndex = (currentIndex + 1) % modes.length;
+        const nextMode = modes[nextIndex];
+        
+        const hasWorkspace = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0;
+        const target = hasWorkspace ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
+        
+        await config.update('pkgGuard.securityMode', nextMode, target);
+        
+        // Show user-friendly descriptions
+        const modeDescriptions = {
+            'interactive': 'Interactive - Ask for approval on risky packages',
+            'monitor': 'Monitor - Show warnings but allow installation',
+            'block': 'Block - Automatically block risky packages',
+            'disabled': 'Disabled - No security checks'
+        };
+        
+        vscode.window.showInformationMessage(
+            `PkgGuard Security Mode: ${modeDescriptions[nextMode as keyof typeof modeDescriptions]}`,
+            'Open Settings'
+        ).then(selection => {
+            if (selection === 'Open Settings') {
+                vscode.commands.executeCommand('workbench.action.openSettings', 'pkgGuard.securityMode');
+            }
+        });
+        
+        if (!hasWorkspace) {
+            vscode.window.showInformationMessage('PkgGuard: Setting updated for User (no workspace open).');
+        }
+    }));
+
     context.subscriptions.push(diagnosticCollection);
 
     // Reapply decorations on window focus

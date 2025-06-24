@@ -118,7 +118,23 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     async handleInput(data: string): Promise<void> {
         // If we have a running process, pass input directly to it
         if (this.runningProcess && this.runningProcess.stdin) {
-            this.runningProcess.stdin.write(data);
+            // Special handling for different input types
+            if (data === '\r') {
+                // Enter key - send proper line ending to process and echo to terminal
+                this.runningProcess.stdin.write('\n'); // Send newline to process
+                this.safeWriteEmitter('\r\n'); // Echo newline to terminal
+            } else if (data === '\x7f' || data === '\b') {
+                // Backspace - send to process and echo to terminal
+                this.runningProcess.stdin.write(data);
+                this.safeWriteEmitter('\b \b');
+            } else if (data.charCodeAt(0) >= 32 && data.charCodeAt(0) <= 126) {
+                // Printable characters - send to process and echo to terminal
+                this.runningProcess.stdin.write(data);
+                this.safeWriteEmitter(data);
+            } else {
+                // Other control characters - just send to process (no echo)
+                this.runningProcess.stdin.write(data);
+            }
             return;
         }
 
