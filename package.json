@@ -2,7 +2,7 @@
   "name": "pkgguard",
   "displayName": "PkgGuard",
   "description": "VS Code extension that guards against hallucinated or malicious package imports",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/shafnir/PkgGuard"

@@ -57,3 +57,6 @@ testbb.py
 # guidelines and intergration docs
 docs/DEVELOPMENT_GUIDELINES.md
 docs/TERMINAL_INTEGRATION.md
+
+# Test files
+test-*

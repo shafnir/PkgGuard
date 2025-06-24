@@ -1,5 +1,6 @@
 *.vsix
 .pkgguard-ignore
+.pkgguard-report.txt
 
 .git/
 
@@ -56,3 +57,6 @@ testbb*
 # guidelines and intergration docs
 docs/DEVELOPMENT_GUIDELINES.md
 docs/TERMINAL_INTEGRATION.md
+
+# Test files
+test-*
