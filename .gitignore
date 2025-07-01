@@ -1,6 +1,7 @@
 *.vsix
 .pkgguard-ignore
 .pkgguard-report.txt
+CLAUDE.md
 
 .git/
 
