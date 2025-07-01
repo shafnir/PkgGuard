@@ -2,6 +2,7 @@
 .pkgguard-ignore
 .pkgguard-report.txt
 CLAUDE.md
+python-stdlib-update.md
 
 .git/
 
