@@ -39,6 +39,14 @@ export function activate(context: vscode.ExtensionContext) {
     const globalStoragePath = context.globalStorageUri.fsPath;
     require('./scoring').setGlobalStoragePath(globalStoragePath);
 
+    // Migrate existing workspace data to global storage (one-time migration)
+    const { migrateWorkspaceDataToGlobal } = require('./scoring');
+    try {
+        migrateWorkspaceDataToGlobal();
+    } catch (error) {
+        console.warn('PkgGuard: Migration warning:', error);
+    }
+
     // Read initial enabled state
     extensionEnabled = vscode.workspace.getConfiguration().get('pkgGuard.enabled', true);
 
@@ -52,31 +60,17 @@ export function activate(context: vscode.ExtensionContext) {
         })
         .catch(() => { });
 
-    // Load .pkgguard-ignore file and cache
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (workspaceFolders && workspaceFolders.length > 0 && workspaceFolders[0]) {
-        const fsPath = workspaceFolders[0].uri.fsPath;
-        loadIgnoreFile(fsPath);
-        require('./scoring').loadCacheFile(fsPath);
-    } else {
-        // Use global storage when no workspace
-        loadIgnoreFile(globalStoragePath);
-        require('./scoring').loadCacheFile(globalStoragePath);
-    }
+    // Load ignore file and cache from global storage
+    loadIgnoreFile();
+    require('./scoring').loadCacheFile();
 
-    // Handle workspace changes
+    // Handle workspace changes - reload from global storage and re-validate
     context.subscriptions.push(
         vscode.workspace.onDidChangeWorkspaceFolders(() => {
-            const workspaceFolders = vscode.workspace.workspaceFolders;
-            if (workspaceFolders && workspaceFolders.length > 0 && workspaceFolders[0]) {
-                const fsPath = workspaceFolders[0].uri.fsPath;
-                loadIgnoreFile(fsPath);
-                require('./scoring').loadCacheFile(fsPath);
-            } else {
-                // Use global storage when no workspace
-                loadIgnoreFile(globalStoragePath);
-                require('./scoring').loadCacheFile(globalStoragePath);
-            }
+            // Reload ignore file and cache from global storage
+            loadIgnoreFile();
+            require('./scoring').loadCacheFile();
+            
             // Re-validate all open editors
             vscode.window.visibleTextEditors.forEach(e => {
                 if (['python', 'javascript', 'typescript'].includes(e.document.languageId)) {
@@ -144,21 +138,17 @@ export function activate(context: vscode.ExtensionContext) {
         const note = await vscode.window.showInputBox({ prompt: 'Optional: Add a note for why you are ignoring this package.' });
         const pathLib = require('path');
         const fsLib = require('fs');
-        let ignorePath;
-        let storagePath;
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (workspaceFolders && workspaceFolders.length > 0 && workspaceFolders[0]) {
-            storagePath = workspaceFolders[0].uri.fsPath;
-        } else {
-            storagePath = context.globalStorageUri.fsPath;
-        }
+        
+        // Always use global storage
+        const storagePath = context.globalStorageUri.fsPath;
         const guardDir = pathLib.join(storagePath, '.pkgguard');
         if (!fsLib.existsSync(guardDir)) fsLib.mkdirSync(guardDir, { recursive: true });
-        ignorePath = pathLib.join(guardDir, '.pkgguard-ignore');
+        const ignorePath = pathLib.join(guardDir, '.pkgguard-ignore');
         let line = packageName;
         if (note && note.trim()) line += ' # ' + note.trim();
         fsLib.appendFileSync(ignorePath, `\n${line}`);
-        loadIgnoreFile(storagePath);
+        loadIgnoreFile();
+        
         // Update cache to store 'ignored' TrustScore
         const { setCachedScore } = require('./scoring');
         setCachedScore('python', packageName, {
@@ -177,11 +167,12 @@ export function activate(context: vscode.ExtensionContext) {
             scoreReasons: ['⚪ This package is ignored by your configuration.' + (note ? ` Note: ${note}` : '')],
             riskFactors: []
         });
+        
         // Refresh decorations for all supported languages
         vscode.window.visibleTextEditors.forEach(e => {
             if (["python", "javascript", "typescript"].includes(e.document.languageId)) debouncedValidate(e.document);
         });
-        vscode.window.showInformationMessage(`PkgGuard: Package '${packageName}' is now ignored.`);
+        vscode.window.showInformationMessage(`PkgGuard: Package '${packageName}' is now ignored globally.`);
     }));
     context.subscriptions.push(vscode.commands.registerCommand('pkgguard.unignorePackage', async (packageNameArg?: string) => {
         if (!packageNameArg) {
@@ -191,72 +182,59 @@ export function activate(context: vscode.ExtensionContext) {
         const packageName = packageNameArg;
         const pathLib = require('path');
         const fsLib = require('fs');
-        let ignorePath;
-        let storagePath;
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (workspaceFolders && workspaceFolders.length > 0 && workspaceFolders[0]) {
-            storagePath = workspaceFolders[0].uri.fsPath;
-        } else {
-            storagePath = context.globalStorageUri.fsPath;
-        }
+        
+        // Always use global storage
+        const storagePath = context.globalStorageUri.fsPath;
         const guardDir = pathLib.join(storagePath, '.pkgguard');
         if (!fsLib.existsSync(guardDir)) fsLib.mkdirSync(guardDir, { recursive: true });
-        ignorePath = pathLib.join(guardDir, '.pkgguard-ignore');
+        const ignorePath = pathLib.join(guardDir, '.pkgguard-ignore');
+        
         if (fsLib.existsSync(ignorePath)) {
             const lines = fsLib.readFileSync(ignorePath, 'utf-8').split(/\r?\n/);
             const filtered = lines.filter((line: string) => !line.trim().startsWith(packageName));
             fsLib.writeFileSync(ignorePath, filtered.join('\n'));
-            loadIgnoreFile(storagePath);
+            loadIgnoreFile();
+            
             // Remove cache entry for this package
             const { removeCachedScore } = require('./scoring');
             removeCachedScore('python', packageName);
             removeCachedScore('javascript', packageName);
+            
             // Refresh decorations for all supported languages
             vscode.window.visibleTextEditors.forEach(e => {
                 if (["python", "javascript", "typescript"].includes(e.document.languageId)) debouncedValidate(e.document);
             });
-            vscode.window.showInformationMessage(`PkgGuard: Package '${packageName}' is no longer ignored.`);
+            vscode.window.showInformationMessage(`PkgGuard: Package '${packageName}' is no longer ignored globally.`);
         }
     }));
 
     // Register clear cache command
     context.subscriptions.push(vscode.commands.registerCommand('pkg-guard.clearCache', async () => {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (workspaceFolders && workspaceFolders.length > 0 && workspaceFolders[0]) {
-            const fsPath = workspaceFolders[0].uri.fsPath;
-            require('./scoring').clearCacheFile(fsPath);
-            require('./scoring').loadCacheFile(fsPath);
-        } else {
-            // Use global storage when no workspace
-            const globalStoragePath = context.globalStorageUri.fsPath;
-            require('./scoring').clearCacheFile(globalStoragePath);
-            require('./scoring').loadCacheFile(globalStoragePath);
-        }
+        // Always use global storage
+        require('./scoring').clearCacheFile();
+        require('./scoring').loadCacheFile();
+        
         // Refresh all open editors
         vscode.window.visibleTextEditors.forEach(e => {
             if (["python", "javascript", "typescript"].includes(e.document.languageId)) debouncedValidate(e.document);
         });
-        vscode.window.showInformationMessage('PkgGuard: Cache cleared. All trust scores will be recalculated.');
+        vscode.window.showInformationMessage('PkgGuard: Global cache cleared. All trust scores will be recalculated.');
     }));
 
     // Register open cache file command
     context.subscriptions.push(vscode.commands.registerCommand('pkg-guard.openCacheFile', async () => {
         const pathLib = require('path');
         const fsLib = require('fs');
-        let cacheFilePath;
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (workspaceFolders && workspaceFolders.length > 0 && workspaceFolders[0]) {
-            const fsPath = workspaceFolders[0].uri.fsPath;
-            cacheFilePath = pathLib.join(fsPath, '.pkgguard', '.pkgguard-cache.json');
-        } else {
-            const globalStoragePath = context.globalStorageUri.fsPath;
-            cacheFilePath = pathLib.join(globalStoragePath, '.pkgguard', '.pkgguard-cache.json');
-        }
+        
+        // Always use global storage
+        const globalStoragePath = context.globalStorageUri.fsPath;
+        const cacheFilePath = pathLib.join(globalStoragePath, '.pkgguard', '.pkgguard-cache.json');
+        
         if (fsLib.existsSync(cacheFilePath)) {
             const doc = await vscode.workspace.openTextDocument(cacheFilePath);
             await vscode.window.showTextDocument(doc, { preview: false });
         } else {
-            vscode.window.showWarningMessage('PkgGuard: Cache file does not exist.');
+            vscode.window.showWarningMessage('PkgGuard: Global cache file does not exist.');
         }
     }));
 
@@ -433,21 +411,8 @@ async function runWithConcurrency<T>(tasks: (() => Promise<T>)[], limit: number)
  */
 async function validateAndDecorate(doc: vscode.TextDocument) {
     if (!extensionEnabled) return;
-    // Always load cache before scoring
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (workspaceFolders && workspaceFolders.length > 0 && workspaceFolders[0]) {
-        const fsPath = workspaceFolders[0].uri.fsPath;
-        require('./scoring').loadCacheFile(fsPath);
-    } else {
-        // Use global storage when no workspace
-        const globalStoragePath = (vscode.extensions.getExtension('shafnir.pkgguard')?.exports?.globalStoragePath) || (globalThis as any).globalStoragePath;
-        // fallback: try to get from activate context if available
-        if (globalStoragePath) {
-            require('./scoring').loadCacheFile(globalStoragePath);
-        } else if ((globalThis as any).pkgguardGlobalStoragePath) {
-            require('./scoring').loadCacheFile((globalThis as any).pkgguardGlobalStoragePath);
-        }
-    }
+    // Always load cache from global storage before scoring
+    require('./scoring').loadCacheFile();
     const editor = vscode.window.visibleTextEditors.find(e => e.document === doc);
     if (!editor || !decorators || !hoverProvider || !diagnosticCollection) {
         if (diagnosticCollection) diagnosticCollection.set(doc.uri, []);
