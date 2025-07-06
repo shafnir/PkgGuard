@@ -1,12 +1,12 @@
 /**
  * Python package detector implementation.
  * Detects import statements in Python code.
- * 
+ *
  * @copilot.generateExample usage=true
  * @copilot.avoid any=true
  */
 
-import { Detector, PackageName } from '../types';
+import { Detector, PackageName } from "../types";
 
 /**
  * Regular expressions for detecting Python imports.
@@ -17,7 +17,7 @@ const IMPORT_PATTERNS = [
   // import package
   /^\s*import\s+([a-zA-Z0-9_]+)\s*$/gm,
   // import package as alias
-  /^\s*import\s+([a-zA-Z0-9_]+)\s+as\s+/gm
+  /^\s*import\s+([a-zA-Z0-9_]+)\s+as\s+/gm,
 ];
 
 /**
@@ -27,20 +27,20 @@ const IMPORT_PATTERNS = [
 export class PythonDetector implements Detector {
   /**
    * Detect package names in Python code.
-   * 
+   *
    * @param text - The Python code to analyze
    * @returns Array of detected package names with their locations
    */
   public detect(text: string): PackageName[] {
     const packages: PackageName[] = [];
-    const lines = text.split('\n');
+    const lines = text.split("\n");
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (!line) continue;
-      
+
       // Skip comments and docstrings
-      if (line.trim().startsWith('#') || line.trim().startsWith('"""')) {
+      if (line.trim().startsWith("#") || line.trim().startsWith('"""')) {
         continue;
       }
 
@@ -53,7 +53,7 @@ export class PythonDetector implements Detector {
               name: packageName,
               line: i + 1,
               column: match.index + 1,
-              importText: line.trim()
+              importText: line.trim(),
             });
           }
         }
@@ -62,4 +62,4 @@ export class PythonDetector implements Detector {
 
     return packages;
   }
-} 
+}

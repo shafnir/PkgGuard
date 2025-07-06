@@ -1,6 +1,6 @@
 /**
  * Core types and interfaces for the Package Guard extension.
- * 
+ *
  * @copilot.generateExample usage=true
  * @copilot.avoid any=true
  */
@@ -48,7 +48,7 @@ export interface TrustScore {
   /** The calculated trust score (0-100, or null for ignored) */
   score: number | null;
   /** The trust level (🟢, 🟡, 🔴, or ⚪ for ignored) */
-  level: 'high' | 'medium' | 'low' | 'ignored';
+  level: "high" | "medium" | "low" | "ignored";
   /** The evidence used to calculate the score */
   evidence: {
     exists: boolean;
@@ -71,7 +71,7 @@ export interface TrustScore {
   /** Medium risk factors (for orange warnings) */
   mediumRiskFactors?: string[];
   /** Risk factors for UI, each with text and color */
-  riskFactors?: { text: string; color: 'red' | 'orange' }[];
+  riskFactors?: { text: string; color: "red" | "orange" }[];
   /** GitHub repo URL (if available, for direct link in UI) */
   githubRepo?: string;
 }
@@ -105,4 +105,4 @@ export type ValidationRequest = {
 export type ValidationResponse = {
   id: string;
   scores: TrustScore[];
-}; 
+};
