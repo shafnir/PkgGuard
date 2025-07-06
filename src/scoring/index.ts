@@ -83,6 +83,29 @@ export class ScoringEngine {
      * @returns Trust score with evidence
      */
     public async calculateScore(name: string, info: RegistryInfo): Promise<TrustScore> {
+        // Check for standard library first (before any API calls to save rate limits)
+        if (PYTHON_STDLIB.has(name)) {
+            const stdlibResult = {
+                packageName: name,
+                score: 100,
+                level: 'high' as const,
+                evidence: {
+                    exists: true,
+                    downloads: 0,
+                    releaseAge: 0,
+                    multipleMaintainers: true,
+                    vulnerabilities: 0,
+                    maintainerCount: 0,
+                    registryUrl: '',
+                },
+                scoreReasons: ['📦 This is a Python standard library module and is always trusted.'],
+                riskFactors: [],
+                githubRepo: undefined
+            };
+            setCachedScore('python', name, stdlibResult);
+            return stdlibResult;
+        }
+
         // Aggressive GitHub detection
         let githubRepo: string | undefined = info.githubRepo;
         if (!githubRepo) {
@@ -125,27 +148,6 @@ export class ScoringEngine {
         // If package was just unignored or no cache, force a rescan
         if (wasIgnored) {
             this.clearRecentlyIgnored(name);
-        }
-
-        // Check for standard library
-        if (PYTHON_STDLIB.has(name)) {
-            return {
-                packageName: name,
-                score: 100,
-                level: 'high',
-                evidence: {
-                    exists: true,
-                    downloads: 0,
-                    releaseAge: 0,
-                    multipleMaintainers: true,
-                    vulnerabilities: 0,
-                    maintainerCount: 0,
-                    registryUrl: '',
-                },
-                scoreReasons: ['📦 This is a Python standard library module and is always trusted.'],
-                riskFactors: [],
-                githubRepo
-            };
         }
 
         const evidence = {
@@ -230,7 +232,7 @@ export class ScoringEngine {
         if (!evidence.exists) scoreReasons.push('❌ Package does not exist on PyPI.');
         if (evidence.downloads === 0 && !topDownloads) scoreReasons.push('📦 No download data available.');
         if (evidence.releaseAge < 7 && evidence.releaseAge > 0) scoreReasons.push('⏰ Very recent release.');
-        if (evidence.downloads > 0 && evidence.downloads < 10000) scoreReasons.push('📦 Low download count (<10,000/week).');
+        if (evidence.downloads > 0 && evidence.downloads < 10000) scoreReasons.push('📦 Low download count (<10,000/month).');
         if (!evidence.multipleMaintainers) scoreReasons.push('👤 Only a single maintainer.');
         if (evidence.vulnerabilities > 0) scoreReasons.push('⚠️ Known vulnerabilities.');
 

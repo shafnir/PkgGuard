@@ -112,16 +112,20 @@ export class PyPIAdapter implements RegistryAdapter {
         }
         latestRelease = latestReleaseDate;
 
-        // Fetch download count from PePy
+        // Fetch download count from PyPI Stats API (monthly downloads)
         let downloads = 0;
         try {
-            const pepyResp = await fetch(`https://pepy.tech/api/projects/${encodeURIComponent(name)}`);
-            if (pepyResp.ok) {
-                const pepyData = await pepyResp.json() as { downloads?: number };
-                downloads = pepyData.downloads ? pepyData.downloads : 0;
+            const pypiStatsResp = await fetch(`https://pypistats.org/api/packages/${encodeURIComponent(name)}/recent?period=month`);
+            if (pypiStatsResp.ok) {
+                const pypiStatsData = await pypiStatsResp.json() as { 
+                    data?: { last_month?: number };
+                    package?: string;
+                    type?: string;
+                };
+                downloads = pypiStatsData.data?.last_month || 0;
             }
         } catch (e) {
-            // Ignore PePy errors, fallback to 0
+            // Ignore PyPI Stats API errors, fallback to 0
         }
 
         // Extract GitHub repo URL (more aggressive)
