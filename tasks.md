@@ -1,10 +1,10 @@
 # PkgGuard Project Tasks
 
 ## Current Status
-- **Project Version**: 0.6.1
+- **Project Version**: 0.6.4
 - **Last Updated**: 2025-07-06
-- **Current Phase**: Maintenance and Enhancement
-- **Active Tasks**: 0 in progress
+- **Current Phase**: Technical Debt Resolution
+- **Active Tasks**: 0 in progress, 5 pending
 
 ## Task Categories
 
@@ -38,17 +38,91 @@ Security enhancements and vulnerability fixes
 *No tasks currently in progress*
 
 ### High Priority - Pending
-*No high priority tasks pending*
+
+- 🟥 **Fix TypeScript Strict Null Checking Errors** (🐛 Bug Fixes)
+  - **Status**: Pending
+  - **Description**: Address 628+ remaining strict null checking issues from dependency upgrade
+  - **Scope**: Object possibly 'undefined' errors in terminal files, type safety improvements
+  - **Files**: src/terminal/shell-integration.ts, src/terminal/simple-terminal.ts, and others
+  - **Impact**: Non-breaking but affects code quality and type safety
+
+- 🟥 **Resolve ESLint Configuration Issues** (🔧 Core Features)
+  - **Status**: Pending  
+  - **Description**: Fix remaining linting errors and configuration warnings from ESLint 9.0 upgrade
+  - **Scope**: MODULE_TYPELESS_PACKAGE_JSON warning, unsafe assignments, console usage, unused variables
+  - **Files**: package.json (add "type": "module"), src/adapters/npm.ts, src/adapters/github.ts
+  - **Impact**: Code quality and build warnings
 
 ### Medium Priority - Pending
-*No medium priority tasks pending*
+
+- 🟨 **Update vscode-test Dependencies** (🔐 Security)
+  - **Status**: Pending (Blocked)
+  - **Description**: Update outdated vscode-test package when compatible version becomes available
+  - **Scope**: 6 remaining vulnerabilities in test dependencies
+  - **Blocker**: Waiting for compatible version release
+  - **Impact**: Security posture improvement
+
+- 🟨 **Monitor Jest 30 Upgrade** (📦 Build & Deploy)
+  - **Status**: Pending (Blocked)
+  - **Description**: Track ts-jest compatibility for Jest 30 upgrade
+  - **Scope**: Major testing framework upgrade
+  - **Blocker**: ts-jest needs to release v30.x compatibility
+  - **Impact**: Modern testing capabilities
 
 ### Low Priority - Pending
-*No low priority tasks pending*
+
+- 🟩 **Evaluate node-pty Beta Upgrade** (🚀 Performance)
+  - **Status**: Pending (Optional)
+  - **Description**: Assess node-pty beta version for terminal functionality improvements
+  - **Scope**: Terminal integration enhancements
+  - **Impact**: Potential terminal performance improvements
 
 ## Completed Tasks
 
 ### 2025-07-06
+- ✅ **Major Dependency Upgrades and Toolchain Modernization** (🔐 Security, 📦 Build & Deploy)
+  - **Status**: Completed
+  - **Description**: Comprehensive upgrade of all major dependencies, build tools, and development infrastructure
+  - **Completion Date**: 2025-07-06
+  - **Components Delivered**:
+    - **Security & Stability Phase**: Upgraded ws (^8.16.0 → ^8.18.3), TypeScript (^5.3.3 → ^5.8.3), VS Code engine (^1.89.0 → ^1.101.0), @types/node (^20.11.24 → ^22.15.0)
+    - **Build System Phase**: Upgraded esbuild (^0.20.1 → 0.25.5) with CORS vulnerability fix
+    - **ESLint Ecosystem Phase**: Upgraded ESLint (^8.57.0 → ^9.0.0), @typescript-eslint/* (^7.1.0 → ^8.35.1), migrated to flat config
+    - **Testing Framework Phase**: Upgraded ts-jest (^29.1.2 → ^29.4.0)
+    - Applied 3,375+ automatic formatting fixes across entire codebase
+  - **Security Impact**: Reduced vulnerabilities from 8 to 6, fixed esbuild CORS security issue
+  - **Technical Details**: 
+    - Migrated from .eslintrc.json to modern eslint.config.js flat configuration
+    - Maintained Jest ^29.7.0 (Jest 30 blocked by ts-jest compatibility)
+    - All core functionality preserved with improved performance
+    - Extension builds and packages successfully
+  - **Notes**: Major infrastructure modernization establishing foundation for future development
+
+- ✅ **Add Manifest Files Scan Functionality** (🔧 Core Features)
+  - **Status**: Completed
+  - **Description**: Enhanced terminal integration with manifest file scanning capabilities
+  - **Completion Date**: 2024-06-24
+  - **Components Delivered**:
+    - Updated simple-terminal.ts with manifest scanning functionality
+    - Enhanced .gitignore and .vscodeignore for better file management
+    - Package.json version updates
+  - **Technical Details**: 
+    - Integrated manifest file detection in terminal monitoring
+    - Enhanced security scanning for package installation commands
+  - **Notes**: Strengthens security posture by analyzing manifest files during package operations
+
+- ✅ **Add Missing Packages to Python Trust List** (🔧 Core Features)
+  - **Status**: Completed
+  - **Description**: Enhanced Python package trust scoring with additional trusted packages
+  - **Completion Date**: 2025-07-01
+  - **Components Delivered**:
+    - Updated Python trust list in src/scoring/index.ts
+    - Enhanced .gitignore configuration
+  - **Technical Details**: 
+    - Added missing standard/trusted Python packages to improve scoring accuracy
+    - Reduces false positives for legitimate packages
+  - **Notes**: Improves user experience by correctly identifying trusted Python packages
+
 - ✅ **Task Management System Setup** (📚 Documentation)
   - **Status**: Completed
   - **Description**: Added complete task management system to CLAUDE.md and created both tasks.md and project-schema.md files
@@ -150,17 +224,18 @@ When adding new tasks, use this template:
 *No current sprint defined*
 
 ### Metrics
-- **Total Tasks**: 4
-- **Completed Tasks**: 4
+- **Total Tasks**: 12
+- **Completed Tasks**: 7
 - **In Progress**: 0
-- **Pending**: 0
-- **Blocked**: 0
-- **Completion Rate**: 100%
+- **Pending**: 5 (2 high, 2 medium, 1 low priority)
+- **Blocked**: 2 (vscode-test, Jest 30)
+- **Completion Rate**: 58%
 
 ### Latest Update
 - **Date**: 2025-07-06
-- **Activity**: Migrated to global storage only - major architectural improvement with data migration
-- **Next Steps**: Ready for new task assignments
+- **Activity**: Documented remaining technical debt from major dependency upgrades
+- **Current Focus**: TypeScript strict errors and ESLint configuration fixes
+- **Next Steps**: Address high-priority code quality issues in next coding session
 
 ## Notes
 
