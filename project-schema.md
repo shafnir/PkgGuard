@@ -199,7 +199,8 @@ Document Change Event
 ## Storage Architecture
 
 ### Cache System
-**Location**: `.pkgguard/.pkgguard-cache.json` (workspace) or global storage
+**Location**: VS Code global storage (`.pkgguard/.pkgguard-cache.json`)
+**Behavior**: Always uses global storage for consistency across workspaces
 **Structure**:
 ```json
 {
@@ -216,7 +217,9 @@ Document Change Event
 ```
 
 ### Ignore System
-**Location**: `.pkgguard/.pkgguard-ignore`
+**Location**: VS Code global storage (`.pkgguard/.pkgguard-ignore`)
+**Behavior**: Always uses global storage, shared across all workspaces
+**Migration**: Automatically migrates existing workspace ignore lists to global storage
 **Format**:
 ```
 package_name # optional comment
@@ -234,13 +237,14 @@ another_package # reason for ignoring
 
 ### Activation
 1. Initialize global storage path
-2. Load configuration settings
-3. Fetch and cache top packages lists
-4. Load ignore file and cache
-5. Register commands and event handlers
-6. Initialize terminal monitoring
-7. Set up hover providers and decorators
-8. Validate all open documents
+2. **Migrate workspace data to global storage** (one-time migration)
+3. Load configuration settings
+4. Fetch and cache top packages lists
+5. Load ignore file and cache from global storage
+6. Register commands and event handlers
+7. Initialize terminal monitoring
+8. Set up hover providers and decorators
+9. Validate all open documents
 
 ### Document Processing
 1. Document change event triggered
