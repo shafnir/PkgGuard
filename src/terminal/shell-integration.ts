@@ -128,12 +128,12 @@ export class TerminalPackageMonitor {
   private cleanPackageName(packageSpec: string): string | null {
     // Remove version specifiers, flags, and extras
     const cleaned = packageSpec
-      .split("==")[0] // Remove exact version
-      .split(">=")[0] // Remove minimum version
-      .split("<=")[0] // Remove maximum version
-      .split("~=")[0] // Remove compatible version
-      .split("[")[0] // Remove extras like [dev]
-      .split("@")[0] // Remove git URLs
+      .split("==")[0]! // Remove exact version
+      .split(">=")[0]! // Remove minimum version
+      .split("<=")[0]! // Remove maximum version
+      .split("~=")[0]! // Remove compatible version
+      .split("[")[0]! // Remove extras like [dev]
+      .split("@")[0]! // Remove git URLs
       .replace(/^-+/, "") // Remove leading flags
       .trim();
 

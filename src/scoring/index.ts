@@ -264,7 +264,6 @@ function getStoragePath(): string | null {
 function migrateWorkspaceDataToGlobal(): void {
   if (!globalStoragePath) return;
 
-
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) return;
 
@@ -285,10 +284,7 @@ function migrateWorkspaceDataToGlobal(): void {
       workspacePkgGuardDir,
       ".pkgguard-ignore",
     );
-    const globalIgnoreFile = path.join(
-      globalPkgGuardDir,
-      ".pkgguard-ignore",
-    );
+    const globalIgnoreFile = path.join(globalPkgGuardDir, ".pkgguard-ignore");
 
     if (fs.existsSync(workspaceIgnoreFile)) {
       const workspaceIgnoreContent = fs.readFileSync(
@@ -298,10 +294,7 @@ function migrateWorkspaceDataToGlobal(): void {
 
       if (fs.existsSync(globalIgnoreFile)) {
         // Merge with existing global ignore file
-        const globalIgnoreContent = fs.readFileSync(
-          globalIgnoreFile,
-          "utf-8",
-        );
+        const globalIgnoreContent = fs.readFileSync(globalIgnoreFile, "utf-8");
         const workspaceLines = workspaceIgnoreContent
           .split(/\r?\n/)
           .filter((line: string) => line.trim());
@@ -605,12 +598,10 @@ export class ScoringEngine {
     const highRiskFactors: string[] = [];
     const mediumRiskFactors: string[] = [];
 
-    let yearsAgo: number | null = null;
     if (githubStats && githubStats.lastCommit > 0) {
       const years = Math.floor(
         (Date.now() - githubStats.lastCommit) / (1000 * 60 * 60 * 24 * 365),
       );
-      yearsAgo = years;
       if (years >= 2) {
         highRiskFactors.push(
           `No updates on GitHub for over 2 years (last update: ${years} year${years === 1 ? "" : "s"} ago).`,
@@ -891,8 +882,7 @@ export function loadIgnoreFile() {
   }
 
   const guardDir = path.join(storagePath, ".pkgguard");
-  if (!fs.existsSync(guardDir))
-    fs.mkdirSync(guardDir, { recursive: true });
+  if (!fs.existsSync(guardDir)) fs.mkdirSync(guardDir, { recursive: true });
   ignoreFilePath = path.join(guardDir, ".pkgguard-ignore");
   ignoredPackages.clear();
   if (fs.existsSync(ignoreFilePath)) {
@@ -930,8 +920,7 @@ export function loadCacheFile() {
   }
 
   const guardDir = path.join(storagePath, ".pkgguard");
-  if (!fs.existsSync(guardDir))
-    fs.mkdirSync(guardDir, { recursive: true });
+  if (!fs.existsSync(guardDir)) fs.mkdirSync(guardDir, { recursive: true });
   cacheFilePath = path.join(guardDir, CACHE_FILE_NAME);
   if (fs.existsSync(cacheFilePath)) {
     try {

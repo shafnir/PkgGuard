@@ -11,8 +11,8 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import { PythonDetector } from "./detectors/python";
 import { PyPIAdapter } from "./adapters/pypi";
-import { 
-  ScoringEngine, 
+import {
+  ScoringEngine,
   loadIgnoreFile,
   setGlobalStoragePath,
   migrateWorkspaceDataToGlobal,
@@ -20,7 +20,7 @@ import {
   clearCacheFile,
   setCachedScore,
   removeCachedScore,
-  getCachedScore
+  getCachedScore,
 } from "./scoring";
 import { TrustDecorators } from "./ui/decorators";
 import { TrustHoverProvider } from "./ui/hovers";
@@ -517,36 +517,6 @@ async function retryWithBackoff<T>(
       delay *= 2;
     }
   }
-}
-
-/**
- * Helper to run async tasks with concurrency limit.
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function runWithConcurrency<T>(
-  tasks: (() => Promise<T>)[],
-  limit: number,
-): Promise<T[]> {
-  const results: T[] = [];
-  let i = 0;
-  const runNext = async (): Promise<void> => {
-    if (i >= tasks.length) return;
-    const idx = i++;
-    const task = tasks[idx];
-    if (typeof task === "function") {
-      try {
-        results[idx] = await task();
-      } catch (e) {
-        results[idx] = undefined as any;
-      }
-      await runNext();
-    }
-  };
-  const runners = Array.from({ length: Math.min(limit, tasks.length) }, () =>
-    runNext(),
-  );
-  await Promise.all(runners);
-  return results;
 }
 
 /**

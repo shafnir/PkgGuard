@@ -186,12 +186,10 @@ export class JavaScriptScoringEngine {
     const highRiskFactors: string[] = [];
     const mediumRiskFactors: string[] = [];
 
-    let yearsAgo: number | null = null;
     if (githubStats && githubStats.lastCommit > 0) {
       const years = Math.floor(
         (Date.now() - githubStats.lastCommit) / (1000 * 60 * 60 * 24 * 365),
       );
-      yearsAgo = years;
       if (years >= 2) {
         highRiskFactors.push(
           `No updates on GitHub for over 2 years (last update: ${years} year${years === 1 ? "" : "s"} ago).`,

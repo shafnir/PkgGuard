@@ -1,6 +1,33 @@
 import fetch from "node-fetch";
 import { RegistryAdapter, RegistryInfo } from "../types";
 
+interface NpmUser {
+  name: string;
+  email?: string;
+}
+
+interface NpmVersion {
+  name: string;
+  version: string;
+  maintainers?: NpmUser[];
+  contributors?: NpmUser[];
+}
+
+interface NpmPackageData {
+  name: string;
+  "dist-tags"?: {
+    latest?: string;
+  };
+  time?: Record<string, string>;
+  versions?: Record<string, NpmVersion>;
+  maintainers?: NpmUser[];
+  contributors?: NpmUser[];
+  repository?: {
+    url?: string;
+    type?: string;
+  };
+}
+
 export class NpmAdapter implements RegistryAdapter {
   private readonly baseUrl = "https://registry.npmjs.org";
   // In-memory cache for meta results
@@ -43,29 +70,26 @@ export class NpmAdapter implements RegistryAdapter {
         `Failed to fetch npm metadata for ${name}: ${response.statusText}`,
       );
     }
-    const data = (await response.json()) as any;
+    const data = (await response.json()) as NpmPackageData;
     // Get the latest release date
     let latestRelease = 0;
-    if (data.time && data["dist-tags"] && data["dist-tags"].latest) {
-      const latestVersion = data["dist-tags"].latest;
-      if (data.time[latestVersion]) {
-        latestRelease = new Date(data.time[latestVersion]).getTime();
-      }
+    const latestVersion = data["dist-tags"]?.latest;
+    if (data.time && latestVersion && data.time[latestVersion]) {
+      latestRelease = new Date(data.time[latestVersion]).getTime();
     }
     // Get maintainers and contributors from the latest version
     let maintainerCount = 0;
-    let uniqueMaintainers = new Set();
-    let latestVersion = data["dist-tags"] && data["dist-tags"].latest;
-    if (latestVersion && data.versions && data.versions[latestVersion]) {
+    const uniqueMaintainers = new Set<string>();
+    if (latestVersion && data.versions?.[latestVersion]) {
       const versionData = data.versions[latestVersion];
       if (Array.isArray(versionData.maintainers)) {
         for (const m of versionData.maintainers) {
-          if (m && m.name) uniqueMaintainers.add(m.name);
+          if (m?.name) uniqueMaintainers.add(m.name);
         }
       }
       if (Array.isArray(versionData.contributors)) {
         for (const c of versionData.contributors) {
-          if (c && c.name) uniqueMaintainers.add(c.name);
+          if (c?.name) uniqueMaintainers.add(c.name);
         }
       }
     }
@@ -73,12 +97,12 @@ export class NpmAdapter implements RegistryAdapter {
     if (uniqueMaintainers.size === 0) {
       if (Array.isArray(data.maintainers)) {
         for (const m of data.maintainers) {
-          if (m && m.name) uniqueMaintainers.add(m.name);
+          if (m?.name) uniqueMaintainers.add(m.name);
         }
       }
       if (Array.isArray(data.contributors)) {
         for (const c of data.contributors) {
-          if (c && c.name) uniqueMaintainers.add(c.name);
+          if (c?.name) uniqueMaintainers.add(c.name);
         }
       }
     }
@@ -86,7 +110,7 @@ export class NpmAdapter implements RegistryAdapter {
     // Get GitHub repo
     let githubRepo: string | undefined = undefined;
     if (
-      data.repository &&
+      data.repository?.url &&
       typeof data.repository.url === "string" &&
       data.repository.url.includes("github.com")
     ) {

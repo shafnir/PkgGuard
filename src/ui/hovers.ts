@@ -15,8 +15,6 @@ import { TrustScore } from "../types";
 export class TrustHoverProvider implements vscode.HoverProvider {
   private readonly scores: Map<string, TrustScore>;
 
-  private verboseState: Map<string, boolean> = new Map();
-
   constructor() {
     this.scores = new Map();
   }
@@ -44,7 +42,7 @@ export class TrustHoverProvider implements vscode.HoverProvider {
     document: vscode.TextDocument,
     position: vscode.Position,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    token: vscode.CancellationToken,
+    _token: vscode.CancellationToken,
   ): vscode.ProviderResult<vscode.Hover> {
     const wordRange = document.getWordRangeAtPosition(position);
     if (!wordRange) {
