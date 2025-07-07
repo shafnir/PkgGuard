@@ -1,7 +1,6 @@
 *.vsix
 .pkgguard-ignore
 .pkgguard-report.txt
-CLAUDE.md
 python-stdlib-update.md
 .claude/settings.local.json
 
