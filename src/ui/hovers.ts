@@ -113,10 +113,14 @@ export class TrustHoverProvider implements vscode.HoverProvider {
           ? "🟡"
           : score.level === "low"
             ? "🔴"
-            : "⚪";
+            : score.level === "unknown"
+              ? "❓"
+              : "⚪";
     let scoreDisplay =
       score.score === null
-        ? "Ignored"
+        ? score.level === "unknown"
+          ? "Unknown"
+          : "Ignored"
         : Number.isInteger(score.score)
           ? score.score
           : Math.round(score.score);
@@ -135,6 +139,32 @@ export class TrustHoverProvider implements vscode.HoverProvider {
       markdown.appendMarkdown(
         `\n[Unignore package](command:pkgguard.unignorePackage?%5B%22${encodeURIComponent(score.packageName)}%22%5D)\n`,
       );
+      markdown.isTrusted = true;
+      return markdown;
+    }
+
+    // If unknown, show unknown message and return early
+    if (score.level === "unknown") {
+      if (score.scoreReasons && score.scoreReasons.length > 0) {
+        for (const reason of score.scoreReasons) {
+          markdown.appendMarkdown(`- ${reason}\n`);
+        }
+      }
+      if (score.riskFactors && score.riskFactors.length > 0) {
+        markdown.appendMarkdown("\n**Issue:**\n");
+        for (const risk of score.riskFactors) {
+          const emoji = risk.color === "red" ? "🔴" : "🟠";
+          markdown.appendMarkdown(`- ${emoji} ${risk.text}\n`);
+        }
+      }
+      // Still show registry link if available
+      if (hasEvidenceRegistryUrl(score)) {
+        const registryUrl = score.evidence.registryUrl;
+        const isPyPI = registryUrl.includes("pypi.org");
+        const isPythonDocs = registryUrl.includes("docs.python.org");
+        const linkText = isPythonDocs ? "Python Docs" : isPyPI ? "PyPI" : "npm";
+        markdown.appendMarkdown(`\n[🔗 View on ${linkText}](${registryUrl})\n`);
+      }
       markdown.isTrusted = true;
       return markdown;
     }
@@ -239,9 +269,9 @@ export class TrustHoverProvider implements vscode.HoverProvider {
     if (hasEvidenceRegistryUrl(score)) {
       const registryUrl = score.evidence.registryUrl;
       const isPyPI = registryUrl.includes("pypi.org");
-      markdown.appendMarkdown(
-        `[🔗 View on ${isPyPI ? "PyPI" : "npm"}](${registryUrl})`,
-      );
+      const isPythonDocs = registryUrl.includes("docs.python.org");
+      const linkText = isPythonDocs ? "Python Docs" : isPyPI ? "PyPI" : "npm";
+      markdown.appendMarkdown(`[🔗 View on ${linkText}](${registryUrl})`);
     }
     // Add GitHub link (if present, on same line as registry link)
     if (hasGithubRepo(score)) {

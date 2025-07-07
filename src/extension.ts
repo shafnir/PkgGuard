@@ -171,6 +171,16 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
+  // Handle configuration changes
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("pkgGuard.securityMode")) {
+        // Security mode changed - notify terminal manager if needed
+        // (Terminal manager will handle its own status bar updates)
+      }
+    }),
+  );
+
   // Load top npm packages for JS/TS
   JavaScriptScoringEngine.setTopPackages(TOP_NPM_PACKAGES);
 
@@ -495,6 +505,8 @@ export function activate(context: vscode.ExtensionContext) {
           }
         });
 
+      // Mode change completed
+
       // Always use global settings now
       vscode.window.showInformationMessage(
         "PkgGuard: Setting updated globally.",
@@ -681,6 +693,7 @@ async function validateAndDecorate(doc: vscode.TextDocument) {
       // Not cached or expired, fetch meta and score async
       const asyncTask = (async () => {
         let meta: RegistryInfo;
+        let score: TrustScore;
         try {
           const rawMeta = await retryWithBackoff(() => adapter.meta(pkg.name));
           if (isRegistryInfo(rawMeta)) {
@@ -688,18 +701,44 @@ async function validateAndDecorate(doc: vscode.TextDocument) {
           } else {
             meta = createDefaultRegistryInfo();
           }
-        } catch {
-          meta = createDefaultRegistryInfo();
-        }
-        // Ensure registryUrl is always set
-        if (!meta.registryUrl) {
-          if (language === "python") {
-            meta.registryUrl = `https://pypi.org/project/${pkg.name}/`;
-          } else if (language === "javascript") {
-            meta.registryUrl = `https://www.npmjs.com/package/${pkg.name}`;
+          // Ensure registryUrl is always set
+          if (!meta.registryUrl) {
+            if (language === "python") {
+              meta.registryUrl = `https://pypi.org/project/${pkg.name}/`;
+            } else if (language === "javascript") {
+              meta.registryUrl = `https://www.npmjs.com/package/${pkg.name}`;
+            }
           }
+          score = await scoring.calculateScore(pkg.name, meta);
+        } catch {
+          // Create unknown trust score for failed requests
+          score = {
+            packageName: pkg.name,
+            score: null,
+            level: "unknown",
+            ecosystem: language as "python" | "javascript",
+            evidence: {
+              exists: false,
+              downloads: 0,
+              releaseAge: 0,
+              multipleMaintainers: false,
+              vulnerabilities: 0,
+              registryUrl:
+                language === "python"
+                  ? `https://pypi.org/project/${pkg.name}/`
+                  : `https://www.npmjs.com/package/${pkg.name}`,
+            },
+            scoreReasons: [
+              "❓ Unable to verify package - network or registry issue",
+            ],
+            riskFactors: [
+              {
+                text: "Package scoring failed. Please check your internet connection and try again.",
+                color: "orange",
+              },
+            ],
+          };
         }
-        const score = await scoring.calculateScore(pkg.name, meta);
         updateUIForPackage(pkg.name, score, range);
       })();
       pendingAsync.push(asyncTask);

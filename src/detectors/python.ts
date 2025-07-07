@@ -51,14 +51,26 @@ export class PythonDetector implements Detector {
       const line = lines[i];
       if (!line) continue;
 
-      // Skip comments and docstrings
+      // Skip full-line comments and docstrings
       if (line.trim().startsWith("#") || line.trim().startsWith('"""')) {
+        continue;
+      }
+
+      // Process line to handle inline comments
+      const processedLine = line.split("#")[0]?.trim() || "";
+      if (!processedLine) continue;
+
+      // Only process lines that actually start with import keywords
+      if (
+        !processedLine.startsWith("import ") &&
+        !processedLine.startsWith("from ")
+      ) {
         continue;
       }
 
       for (const pattern of IMPORT_PATTERNS) {
         let match: RegExpExecArray | null;
-        while ((match = pattern.exec(line)) !== null) {
+        while ((match = pattern.exec(processedLine)) !== null) {
           const fullModulePath = match[1];
           if (fullModulePath && match.index !== undefined) {
             const basePackageName = getBasePackageName(fullModulePath);

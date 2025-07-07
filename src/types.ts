@@ -47,8 +47,8 @@ export interface TrustScore {
   packageName: string;
   /** The calculated trust score (0-100, or null for ignored) */
   score: number | null;
-  /** The trust level (🟢, 🟡, 🔴, or ⚪ for ignored) */
-  level: "high" | "medium" | "low" | "ignored";
+  /** The trust level (🟢, 🟡, 🔴, ⚪ for ignored, or ❓ for unknown) */
+  level: "high" | "medium" | "low" | "ignored" | "unknown";
   /** The ecosystem/language (for display purposes) */
   ecosystem?: "python" | "javascript";
   /** The evidence used to calculate the score */

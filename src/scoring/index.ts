@@ -414,6 +414,7 @@ export class ScoringEngine implements Scorer {
         packageName: name,
         score: 100,
         level: "high" as const,
+        ecosystem: "python" as const,
         evidence: {
           exists: true,
           downloads: 0,
@@ -421,7 +422,7 @@ export class ScoringEngine implements Scorer {
           multipleMaintainers: true,
           vulnerabilities: 0,
           maintainerCount: 0,
-          registryUrl: "",
+          registryUrl: `https://docs.python.org/3/library/${name}.html`,
         },
         scoreReasons: [
           "📦 This is a Python standard library module and is always trusted.",

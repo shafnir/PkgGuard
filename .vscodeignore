@@ -69,3 +69,7 @@ python-stdlib-update.md
 .claude/
 .npm/
 
+# Project MD files
+project-schema.md
+tasks.md
+docs/**

@@ -34,7 +34,7 @@ PkgGuard is a VS Code extension that protects developers from AI hallucinations 
 - Status bar integration and configuration management
 
 **Detection Pipeline** (`src/detectors/`):
-- `python.ts` - Regex-based Python import detection (from/import statements)
+- `python.ts` - Regex-based Python import detection (from/import statements, supports inline comments)
 - `javascript.ts` - ES6/CommonJS import detection including scoped packages
 
 **Registry Adapters** (`src/adapters/`):
@@ -88,6 +88,7 @@ PkgGuard is a VS Code extension that protects developers from AI hallucinations 
 - **High Trust (🟢)**: Score ≥ 80 (Python) / ≥ 75 (JavaScript)
 - **Medium Trust (🟡)**: Score 50-79 (Python) / 45-74 (JavaScript)  
 - **Low Trust (🔴)**: Score < 50 / < 45
+- **Unknown (❓)**: Package scoring failed (network/registry issues)
 - **Ignored (⚪)**: User-configured ignore
 
 ### Weighted Scoring Factors
