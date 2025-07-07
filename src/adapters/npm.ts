@@ -1,6 +1,40 @@
 import fetch from "node-fetch";
 import { RegistryAdapter, RegistryInfo } from "../types";
 
+interface NpmUser {
+  name: string;
+  email?: string;
+}
+
+interface NpmVersion {
+  name: string;
+  version: string;
+  maintainers?: NpmUser[];
+  contributors?: NpmUser[];
+}
+
+interface NpmPackageData {
+  name: string;
+  "dist-tags"?: {
+    latest?: string;
+  };
+  time?: Record<string, string>;
+  versions?: Record<string, NpmVersion>;
+  maintainers?: NpmUser[];
+  contributors?: NpmUser[];
+  repository?: {
+    url?: string;
+    type?: string;
+  };
+}
+
+interface NpmDownloadStats {
+  downloads: number;
+  start?: string;
+  end?: string;
+  package?: string;
+}
+
 export class NpmAdapter implements RegistryAdapter {
   private readonly baseUrl = "https://registry.npmjs.org";
   // In-memory cache for meta results
@@ -43,29 +77,26 @@ export class NpmAdapter implements RegistryAdapter {
         `Failed to fetch npm metadata for ${name}: ${response.statusText}`,
       );
     }
-    const data = (await response.json()) as any;
+    const data = (await response.json()) as NpmPackageData;
     // Get the latest release date
     let latestRelease = 0;
-    if (data.time && data["dist-tags"] && data["dist-tags"].latest) {
-      const latestVersion = data["dist-tags"].latest;
-      if (data.time[latestVersion]) {
-        latestRelease = new Date(data.time[latestVersion]).getTime();
-      }
+    const latestVersion = data["dist-tags"]?.latest;
+    if (data.time && latestVersion && data.time[latestVersion]) {
+      latestRelease = new Date(data.time[latestVersion]).getTime();
     }
     // Get maintainers and contributors from the latest version
     let maintainerCount = 0;
-    let uniqueMaintainers = new Set();
-    let latestVersion = data["dist-tags"] && data["dist-tags"].latest;
-    if (latestVersion && data.versions && data.versions[latestVersion]) {
+    const uniqueMaintainers = new Set<string>();
+    if (latestVersion && data.versions?.[latestVersion]) {
       const versionData = data.versions[latestVersion];
       if (Array.isArray(versionData.maintainers)) {
         for (const m of versionData.maintainers) {
-          if (m && m.name) uniqueMaintainers.add(m.name);
+          if (m?.name) uniqueMaintainers.add(m.name);
         }
       }
       if (Array.isArray(versionData.contributors)) {
         for (const c of versionData.contributors) {
-          if (c && c.name) uniqueMaintainers.add(c.name);
+          if (c?.name) uniqueMaintainers.add(c.name);
         }
       }
     }
@@ -73,26 +104,27 @@ export class NpmAdapter implements RegistryAdapter {
     if (uniqueMaintainers.size === 0) {
       if (Array.isArray(data.maintainers)) {
         for (const m of data.maintainers) {
-          if (m && m.name) uniqueMaintainers.add(m.name);
+          if (m?.name) uniqueMaintainers.add(m.name);
         }
       }
       if (Array.isArray(data.contributors)) {
         for (const c of data.contributors) {
-          if (c && c.name) uniqueMaintainers.add(c.name);
+          if (c?.name) uniqueMaintainers.add(c.name);
         }
       }
     }
     maintainerCount = uniqueMaintainers.size;
-    // Get GitHub repo
+    // Get GitHub repo - handle various Git URL formats
     let githubRepo: string | undefined = undefined;
     if (
-      data.repository &&
+      data.repository?.url &&
       typeof data.repository.url === "string" &&
       data.repository.url.includes("github.com")
     ) {
       githubRepo = data.repository.url
-        .replace(/^git\+/, "")
-        .replace(/\.git$/, "");
+        .replace(/^git\+/, "") // Remove git+ prefix
+        .replace(/^git:\/\//, "https://") // Convert git:// to https://
+        .replace(/\.git$/, ""); // Remove .git suffix
     }
     // Fetch download count from npm API (weekly)
     let downloads = 0;
@@ -101,7 +133,7 @@ export class NpmAdapter implements RegistryAdapter {
         `https://api.npmjs.org/downloads/point/last-week/${encodeURIComponent(name)}`,
       );
       if (statsResp.ok) {
-        const statsData: any = await statsResp.json();
+        const statsData = (await statsResp.json()) as NpmDownloadStats;
         downloads = statsData.downloads || 0;
       } else {
         // fallback to monthly
@@ -109,21 +141,21 @@ export class NpmAdapter implements RegistryAdapter {
           `https://api.npmjs.org/downloads/point/last-month/${encodeURIComponent(name)}`,
         );
         if (statsResp.ok) {
-          const statsData: any = await statsResp.json();
+          const statsData = (await statsResp.json()) as NpmDownloadStats;
           const daysInMonth = 30; // npm API does not provide days, so estimate
           downloads = Math.round(
             ((statsData.downloads || 0) / daysInMonth) * 7,
           );
         }
       }
-    } catch (e) {
+    } catch {
       // Ignore errors, fallback to 0
     }
     // If GitHub repo found, try to fetch contributors as maintainers
     if ((!maintainerCount || maintainerCount === 1) && githubRepo) {
       try {
         const repoMatch = githubRepo.match(
-          /github\.com\/([\w\-\.]+)\/([\w\-\.]+)/,
+          /github\.com\/([\w\-.]+)\/([\w\-.]+)/,
         );
         if (repoMatch) {
           const owner = repoMatch[1];
@@ -140,7 +172,9 @@ export class NpmAdapter implements RegistryAdapter {
             }
           }
         }
-      } catch {}
+      } catch {
+        // Ignore GitHub API errors, fall back to package maintainer count
+      }
     }
     const result: RegistryInfo = {
       exists: true,

@@ -39,9 +39,9 @@ export class TerminalPackageMonitor {
     this.statusBarItem.show();
   }
 
-  private async onShellExecutionStart(
+  private onShellExecutionStart(
     e: vscode.TerminalShellExecutionStartEvent,
-  ): Promise<void> {
+  ): void {
     const command = e.execution.commandLine.value;
     const packages = this.extractPackageNames(command);
 
@@ -51,15 +51,13 @@ export class TerminalPackageMonitor {
     this.statusBarItem.text = `$(loading~spin) PkgGuard: Analyzing ${packages.length} package${packages.length > 1 ? "s" : ""}...`;
     this.statusBarItem.color = "#ffb400";
 
-    // Analyze packages asynchronously
-    this.analyzePackagesAsync(packages, command);
+    // Analyze packages asynchronously (intentionally not awaited to avoid blocking)
+    void this.analyzePackagesAsync(packages, command);
   }
 
-  private async onShellExecutionEnd(
-    _e: vscode.TerminalShellExecutionEndEvent,
-  ): Promise<void> {
+  private onShellExecutionEnd(): void {
     // Reset status bar after command completion
-    setTimeout(() => {
+    globalThis.setTimeout(() => {
       this.statusBarItem.text = "$(shield) PkgGuard";
       this.statusBarItem.color = undefined;
     }, 2000);
@@ -68,7 +66,7 @@ export class TerminalPackageMonitor {
   /**
    * Extract package names from common installation commands
    */
-  private extractPackageNames(
+  public extractPackageNames(
     command: string,
   ): Array<{ name: string; ecosystem: "python" | "javascript" }> {
     const packages: Array<{
@@ -127,15 +125,28 @@ export class TerminalPackageMonitor {
    */
   private cleanPackageName(packageSpec: string): string | null {
     // Remove version specifiers, flags, and extras
-    const cleaned = packageSpec
-      .split("==")[0] // Remove exact version
-      .split(">=")[0] // Remove minimum version
-      .split("<=")[0] // Remove maximum version
-      .split("~=")[0] // Remove compatible version
-      .split("[")[0] // Remove extras like [dev]
-      .split("@")[0] // Remove git URLs
-      .replace(/^-+/, "") // Remove leading flags
-      .trim();
+    const parts = packageSpec.split("==");
+    if (parts.length === 0 || !parts[0]) return null;
+    let cleaned = parts[0];
+
+    const versionSeparators = [">=", "<=", "~="];
+    for (const sep of versionSeparators) {
+      const sepParts = cleaned.split(sep);
+      if (sepParts.length > 0 && sepParts[0]) {
+        cleaned = sepParts[0];
+      }
+    }
+
+    const extraSeparators = ["[", "@"];
+    for (const sep of extraSeparators) {
+      const sepParts = cleaned.split(sep);
+      if (sepParts.length > 0 && sepParts[0]) {
+        cleaned = sepParts[0];
+      }
+    }
+
+    if (!cleaned) return null;
+    cleaned = cleaned.replace(/^-+/, "").trim();
 
     // Basic validation
     if (!cleaned || cleaned.startsWith("-") || cleaned.includes(" ")) {
@@ -161,8 +172,8 @@ export class TerminalPackageMonitor {
     // Analyze each package
     for (const pkg of packages) {
       try {
-        let adapter: any;
-        let scoring: any;
+        let adapter: PyPIAdapter | NpmAdapter;
+        let scoring: ScoringEngine | JavaScriptScoringEngine;
 
         if (pkg.ecosystem === "python") {
           adapter = new PyPIAdapter();
@@ -181,7 +192,7 @@ export class TerminalPackageMonitor {
           ecosystem: pkg.ecosystem,
         });
       } catch (error) {
-        console.error(`Error analyzing package ${pkg.name}:`, error);
+        globalThis.console.error(`Error analyzing package ${pkg.name}:`, error);
       }
     }
 

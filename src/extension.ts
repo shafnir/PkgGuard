@@ -9,10 +9,12 @@
 import * as vscode from "vscode";
 import * as path from "node:path";
 import * as fs from "node:fs";
+import { setTimeout, clearTimeout } from "node:timers";
+import fetch from "node-fetch";
 import { PythonDetector } from "./detectors/python";
 import { PyPIAdapter } from "./adapters/pypi";
-import { 
-  ScoringEngine, 
+import {
+  ScoringEngine,
   loadIgnoreFile,
   setGlobalStoragePath,
   migrateWorkspaceDataToGlobal,
@@ -20,11 +22,18 @@ import {
   clearCacheFile,
   setCachedScore,
   removeCachedScore,
-  getCachedScore
+  getCachedScore,
 } from "./scoring";
 import { TrustDecorators } from "./ui/decorators";
 import { TrustHoverProvider } from "./ui/hovers";
-import { PackageName, TrustScore } from "./types";
+import {
+  PackageName,
+  TrustScore,
+  Detector,
+  RegistryAdapter,
+  Scorer,
+  RegistryInfo,
+} from "./types";
 import { JavaScriptDetector } from "./detectors/javascript";
 import { NpmAdapter } from "./adapters/npm";
 import { JavaScriptScoringEngine } from "./scoring/javascript";
@@ -32,16 +41,79 @@ import { TOP_NPM_PACKAGES } from "./adapters/npm-top";
 import { TerminalPackageMonitor } from "./terminal/shell-integration";
 import { SimpleTerminalManager } from "./terminal/simple-terminal";
 
+interface TopPyPIResponse {
+  rows: { project: string; download_count: number }[];
+}
+
+/**
+ * Type guard to check if an object is a valid TopPyPIResponse
+ */
+function isTopPyPIResponse(obj: unknown): obj is TopPyPIResponse {
+  if (typeof obj !== "object" || obj === null) {
+    return false;
+  }
+  const candidate = obj as Record<string, unknown>;
+
+  if (!("rows" in candidate) || !Array.isArray(candidate.rows)) {
+    return false;
+  }
+  return candidate.rows.every((row: unknown) => {
+    if (typeof row !== "object" || row === null) {
+      return false;
+    }
+    const rowCandidate = row as Record<string, unknown>;
+    return (
+      typeof rowCandidate.project === "string" &&
+      typeof rowCandidate.download_count === "number"
+    );
+  });
+}
+
+/**
+ * Type guard to check if an object is a valid RegistryInfo
+ */
+function isRegistryInfo(obj: unknown): obj is RegistryInfo {
+  if (typeof obj !== "object" || obj === null) {
+    return false;
+  }
+  const candidate = obj as Record<string, unknown>;
+  return (
+    "exists" in candidate &&
+    "downloads" in candidate &&
+    "latestRelease" in candidate &&
+    "maintainerCount" in candidate &&
+    "highVulnCount" in candidate &&
+    typeof candidate.exists === "boolean" &&
+    typeof candidate.downloads === "number" &&
+    typeof candidate.latestRelease === "number" &&
+    typeof candidate.maintainerCount === "number" &&
+    typeof candidate.highVulnCount === "number"
+  );
+}
+
+/**
+ * Creates a default RegistryInfo object for cases where metadata cannot be retrieved
+ */
+function createDefaultRegistryInfo(): RegistryInfo {
+  return {
+    exists: false,
+    downloads: 0,
+    latestRelease: 0,
+    maintainerCount: 0,
+    highVulnCount: 0,
+  };
+}
+
 let decorators: TrustDecorators | undefined;
 let hoverProvider: TrustHoverProvider | undefined;
 let diagnosticCollection: vscode.DiagnosticCollection | undefined;
-let debounceTimers: Map<string, NodeJS.Timeout> = new Map();
+let debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 let extensionEnabled: boolean = true;
 let statusBarItem: vscode.StatusBarItem | undefined;
 let terminalMonitor: TerminalPackageMonitor | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log("PkgGuard: Extension activation started");
+  // Extension activation started
 
   if (!decorators) decorators = new TrustDecorators();
   if (!hoverProvider) hoverProvider = new TrustHoverProvider();
@@ -56,8 +128,8 @@ export function activate(context: vscode.ExtensionContext) {
   // Migrate existing workspace data to global storage (one-time migration)
   try {
     migrateWorkspaceDataToGlobal();
-  } catch (error) {
-    console.warn("PkgGuard: Migration warning:", error);
+  } catch {
+    // Migration warning - silent fallback
   }
 
   // Read initial enabled state
@@ -68,12 +140,14 @@ export function activate(context: vscode.ExtensionContext) {
   // Fetch and cache the top PyPI packages list
   fetch("https://hugovk.github.io/top-pypi-packages/top-pypi-packages.min.json")
     .then((res) => res.json())
-    .then((data: any) => {
-      if (Array.isArray(data.rows)) {
+    .then((data: unknown) => {
+      if (isTopPyPIResponse(data)) {
         ScoringEngine.setTopPackages(data.rows);
       }
     })
-    .catch(() => {});
+    .catch(() => {
+      // Ignore errors fetching top packages list
+    });
 
   // Load ignore file and cache from global storage
   loadIgnoreFile();
@@ -97,6 +171,16 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
+  // Handle configuration changes
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("pkgGuard.securityMode")) {
+        // Security mode changed - notify terminal manager if needed
+        // (Terminal manager will handle its own status bar updates)
+      }
+    }),
+  );
+
   // Load top npm packages for JS/TS
   JavaScriptScoringEngine.setTopPackages(TOP_NPM_PACKAGES);
 
@@ -110,15 +194,10 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   // Register simple terminal commands
-  console.log("PkgGuard: Registering simple terminal commands");
   try {
     SimpleTerminalManager.registerCommands(context);
-    console.log("PkgGuard: Simple terminal commands registered successfully");
+    // Simple terminal commands registered successfully
   } catch (error) {
-    console.error(
-      "PkgGuard: Failed to register simple terminal commands:",
-      error,
-    );
     vscode.window.showErrorMessage(
       `PkgGuard: Failed to register terminal commands: ${(error as Error).message}`,
     );
@@ -239,7 +318,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "pkgguard.unignorePackage",
-      async (packageNameArg?: string) => {
+      (packageNameArg?: string) => {
         if (!packageNameArg) {
           vscode.window.showErrorMessage(
             "PkgGuard: Could not determine package to unignore. Please use the hover UI.",
@@ -285,7 +364,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register clear cache command
   context.subscriptions.push(
-    vscode.commands.registerCommand("pkg-guard.clearCache", async () => {
+    vscode.commands.registerCommand("pkg-guard.clearCache", () => {
       // Always use global storage
       clearCacheFile();
       loadCacheFile();
@@ -334,15 +413,15 @@ export function activate(context: vscode.ExtensionContext) {
   function updateStatusBar() {
     if (!statusBarItem) return;
     if (extensionEnabled) {
-      statusBarItem!.text = "$(shield) PkgGuard: On";
-      statusBarItem!.color = "#2ecc40"; // green
-      statusBarItem!.tooltip = "PkgGuard is enabled. Click to disable.";
+      statusBarItem.text = "$(shield) PkgGuard: On";
+      statusBarItem.color = "#2ecc40"; // green
+      statusBarItem.tooltip = "PkgGuard is enabled. Click to disable.";
     } else {
-      statusBarItem!.text = "$(shield) PkgGuard: Off";
-      statusBarItem!.color = "#888888"; // gray
-      statusBarItem!.tooltip = "PkgGuard is disabled. Click to enable.";
+      statusBarItem.text = "$(shield) PkgGuard: Off";
+      statusBarItem.color = "#888888"; // gray
+      statusBarItem.tooltip = "PkgGuard is disabled. Click to enable.";
     }
-    statusBarItem!.show();
+    statusBarItem.show();
   }
   updateStatusBar();
   context.subscriptions.push(statusBarItem);
@@ -352,12 +431,8 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("pkg-guard.toggleEnabled", async () => {
       const config = vscode.workspace.getConfiguration();
       const current = config.get("pkgGuard.enabled", true);
-      const hasWorkspace =
-        vscode.workspace.workspaceFolders &&
-        vscode.workspace.workspaceFolders.length > 0;
-      const target = hasWorkspace
-        ? vscode.ConfigurationTarget.Workspace
-        : vscode.ConfigurationTarget.Global;
+      // Always use global configuration to avoid polluting workspace
+      const target = vscode.ConfigurationTarget.Global;
       await config.update("pkgGuard.enabled", !current, target);
       extensionEnabled = !current;
       updateStatusBar();
@@ -384,11 +459,10 @@ export function activate(context: vscode.ExtensionContext) {
           "PkgGuard: Extension enabled. Trust badges and diagnostics are active.",
         );
       }
-      if (!hasWorkspace) {
-        vscode.window.showInformationMessage(
-          "PkgGuard: Setting updated for User (no workspace open).",
-        );
-      }
+      // Always use global settings now
+      vscode.window.showInformationMessage(
+        "PkgGuard: Setting updated globally.",
+      );
     }),
   );
 
@@ -404,12 +478,8 @@ export function activate(context: vscode.ExtensionContext) {
       const nextIndex = (currentIndex + 1) % modes.length;
       const nextMode = modes[nextIndex];
 
-      const hasWorkspace =
-        vscode.workspace.workspaceFolders &&
-        vscode.workspace.workspaceFolders.length > 0;
-      const target = hasWorkspace
-        ? vscode.ConfigurationTarget.Workspace
-        : vscode.ConfigurationTarget.Global;
+      // Always use global configuration to avoid polluting workspace
+      const target = vscode.ConfigurationTarget.Global;
 
       await config.update("pkgGuard.securityMode", nextMode, target);
 
@@ -435,11 +505,12 @@ export function activate(context: vscode.ExtensionContext) {
           }
         });
 
-      if (!hasWorkspace) {
-        vscode.window.showInformationMessage(
-          "PkgGuard: Setting updated for User (no workspace open).",
-        );
-      }
+      // Mode change completed
+
+      // Always use global settings now
+      vscode.window.showInformationMessage(
+        "PkgGuard: Setting updated globally.",
+      );
     }),
   );
 
@@ -520,36 +591,6 @@ async function retryWithBackoff<T>(
 }
 
 /**
- * Helper to run async tasks with concurrency limit.
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function runWithConcurrency<T>(
-  tasks: (() => Promise<T>)[],
-  limit: number,
-): Promise<T[]> {
-  const results: T[] = [];
-  let i = 0;
-  const runNext = async (): Promise<void> => {
-    if (i >= tasks.length) return;
-    const idx = i++;
-    const task = tasks[idx];
-    if (typeof task === "function") {
-      try {
-        results[idx] = await task();
-      } catch (e) {
-        results[idx] = undefined as any;
-      }
-      await runNext();
-    }
-  };
-  const runners = Array.from({ length: Math.min(limit, tasks.length) }, () =>
-    runNext(),
-  );
-  await Promise.all(runners);
-  return results;
-}
-
-/**
  * Detect, validate, score, and decorate imports in a Python document.
  */
 async function validateAndDecorate(doc: vscode.TextDocument) {
@@ -563,9 +604,9 @@ async function validateAndDecorate(doc: vscode.TextDocument) {
     if (diagnosticCollection) diagnosticCollection.set(doc.uri, []);
     return;
   }
-  let detector: any;
-  let adapter: any;
-  let scoring: any;
+  let detector: Detector;
+  let adapter: RegistryAdapter;
+  let scoring: Scorer;
   let language: string;
   if (doc.languageId === "python") {
     detector = new PythonDetector();
@@ -651,29 +692,53 @@ async function validateAndDecorate(doc: vscode.TextDocument) {
     } else {
       // Not cached or expired, fetch meta and score async
       const asyncTask = (async () => {
-        let meta;
+        let meta: RegistryInfo;
+        let score: TrustScore;
         try {
-          meta = (await retryWithBackoff(() =>
-            adapter.meta(pkg.name),
-          )) as import("./types").RegistryInfo;
+          const rawMeta = await retryWithBackoff(() => adapter.meta(pkg.name));
+          if (isRegistryInfo(rawMeta)) {
+            meta = rawMeta;
+          } else {
+            meta = createDefaultRegistryInfo();
+          }
+          // Ensure registryUrl is always set
+          if (!meta.registryUrl) {
+            if (language === "python") {
+              meta.registryUrl = `https://pypi.org/project/${pkg.name}/`;
+            } else if (language === "javascript") {
+              meta.registryUrl = `https://www.npmjs.com/package/${pkg.name}`;
+            }
+          }
+          score = await scoring.calculateScore(pkg.name, meta);
         } catch {
-          meta = {
-            exists: false,
-            downloads: 0,
-            latestRelease: 0,
-            maintainerCount: 0,
-            highVulnCount: 0,
+          // Create unknown trust score for failed requests
+          score = {
+            packageName: pkg.name,
+            score: null,
+            level: "unknown",
+            ecosystem: language as "python" | "javascript",
+            evidence: {
+              exists: false,
+              downloads: 0,
+              releaseAge: 0,
+              multipleMaintainers: false,
+              vulnerabilities: 0,
+              registryUrl:
+                language === "python"
+                  ? `https://pypi.org/project/${pkg.name}/`
+                  : `https://www.npmjs.com/package/${pkg.name}`,
+            },
+            scoreReasons: [
+              "❓ Unable to verify package - network or registry issue",
+            ],
+            riskFactors: [
+              {
+                text: "Package scoring failed. Please check your internet connection and try again.",
+                color: "orange",
+              },
+            ],
           };
         }
-        // Ensure registryUrl is always set
-        if (!meta.registryUrl) {
-          if (language === "python") {
-            meta.registryUrl = `https://pypi.org/project/${pkg.name}/`;
-          } else if (language === "javascript") {
-            meta.registryUrl = `https://www.npmjs.com/package/${pkg.name}`;
-          }
-        }
-        const score = await scoring.calculateScore(pkg.name, meta);
         updateUIForPackage(pkg.name, score, range);
       })();
       pendingAsync.push(asyncTask);

@@ -2,6 +2,8 @@
  * Tests for Terminal Integration functionality
  */
 
+/// <reference types="jest" />
+
 import { TerminalPackageMonitor } from "../shell-integration";
 
 describe("Terminal Integration", () => {
@@ -22,9 +24,9 @@ describe("Terminal Integration", () => {
       ];
 
       commands.forEach((command) => {
-        const packages = (monitor as any).extractPackageNames(command);
+        const packages = monitor.extractPackageNames(command);
         expect(packages.length).toBeGreaterThan(0);
-        expect(packages[0].ecosystem).toBe("python");
+        expect(packages[0]?.ecosystem).toBe("python");
       });
     });
 
@@ -38,9 +40,9 @@ describe("Terminal Integration", () => {
       ];
 
       commands.forEach((command) => {
-        const packages = (monitor as any).extractPackageNames(command);
+        const packages = monitor.extractPackageNames(command);
         expect(packages.length).toBeGreaterThan(0);
-        expect(packages[0].ecosystem).toBe("javascript");
+        expect(packages[0]?.ecosystem).toBe("javascript");
       });
     });
 
@@ -54,7 +56,11 @@ describe("Terminal Integration", () => {
       ];
 
       testCases.forEach(({ input, expected }) => {
-        const result = (monitor as any).cleanPackageName(input);
+        const result = (
+          monitor as unknown as {
+            cleanPackageName: (input: string) => string | null;
+          }
+        ).cleanPackageName(input);
         expect(result).toBe(expected);
       });
     });
@@ -69,7 +75,11 @@ describe("Terminal Integration", () => {
       ];
 
       invalidSpecs.forEach((spec) => {
-        const result = (monitor as any).cleanPackageName(spec);
+        const result = (
+          monitor as unknown as {
+            cleanPackageName: (input: string) => string | null;
+          }
+        ).cleanPackageName(spec);
         expect(result).toBe(null);
       });
     });
@@ -84,7 +94,7 @@ describe("Terminal Integration", () => {
       ];
 
       commands.forEach((command) => {
-        const packages = (monitor as any).extractPackageNames(command);
+        const packages = monitor.extractPackageNames(command);
         expect(packages.length).toBe(0);
       });
     });

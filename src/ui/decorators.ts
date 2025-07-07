@@ -16,6 +16,7 @@ export class TrustDecorators {
   private readonly highTrustDecoration: vscode.TextEditorDecorationType;
   private readonly mediumTrustDecoration: vscode.TextEditorDecorationType;
   private readonly lowTrustDecoration: vscode.TextEditorDecorationType;
+  private readonly unknownTrustDecoration: vscode.TextEditorDecorationType;
 
   constructor() {
     // Create decoration types with different colors
@@ -45,6 +46,15 @@ export class TrustDecorators {
         fontWeight: "bold",
       },
     });
+
+    this.unknownTrustDecoration = vscode.window.createTextEditorDecorationType({
+      after: {
+        contentText: "?",
+        color: "#888888", // gray
+        margin: "0 0 0 1em",
+        fontWeight: "bold",
+      },
+    });
   }
 
   /**
@@ -60,6 +70,7 @@ export class TrustDecorators {
     const highTrustRanges: vscode.Range[] = [];
     const mediumTrustRanges: vscode.Range[] = [];
     const lowTrustRanges: vscode.Range[] = [];
+    const unknownTrustRanges: vscode.Range[] = [];
 
     // Group ranges by trust level
     for (const { score, range } of scores) {
@@ -73,6 +84,9 @@ export class TrustDecorators {
         case "low":
           lowTrustRanges.push(range);
           break;
+        case "unknown":
+          unknownTrustRanges.push(range);
+          break;
       }
     }
 
@@ -80,6 +94,7 @@ export class TrustDecorators {
     editor.setDecorations(this.highTrustDecoration, highTrustRanges);
     editor.setDecorations(this.mediumTrustDecoration, mediumTrustRanges);
     editor.setDecorations(this.lowTrustDecoration, lowTrustRanges);
+    editor.setDecorations(this.unknownTrustDecoration, unknownTrustRanges);
   }
 
   /**
@@ -91,6 +106,7 @@ export class TrustDecorators {
     editor.setDecorations(this.highTrustDecoration, []);
     editor.setDecorations(this.mediumTrustDecoration, []);
     editor.setDecorations(this.lowTrustDecoration, []);
+    editor.setDecorations(this.unknownTrustDecoration, []);
   }
 
   /**
@@ -100,5 +116,6 @@ export class TrustDecorators {
     this.highTrustDecoration.dispose();
     this.mediumTrustDecoration.dispose();
     this.lowTrustDecoration.dispose();
+    this.unknownTrustDecoration.dispose();
   }
 }

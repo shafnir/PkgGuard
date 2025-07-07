@@ -47,8 +47,10 @@ export interface TrustScore {
   packageName: string;
   /** The calculated trust score (0-100, or null for ignored) */
   score: number | null;
-  /** The trust level (🟢, 🟡, 🔴, or ⚪ for ignored) */
-  level: "high" | "medium" | "low" | "ignored";
+  /** The trust level (🟢, 🟡, 🔴, ⚪ for ignored, or ❓ for unknown) */
+  level: "high" | "medium" | "low" | "ignored" | "unknown";
+  /** The ecosystem/language (for display purposes) */
+  ecosystem?: "python" | "javascript";
   /** The evidence used to calculate the score */
   evidence: {
     exists: boolean;
@@ -92,6 +94,33 @@ export interface RegistryAdapter {
 export interface Detector {
   /** Detect package names in the given text */
   detect(text: string): PackageName[];
+}
+
+/**
+ * Scoring engine interface.
+ */
+export interface Scorer {
+  /** Calculate trust score for a package */
+  calculateScore(name: string, info: RegistryInfo): Promise<TrustScore>;
+}
+
+/**
+ * Cache entry for a scored package.
+ */
+export interface CacheEntry {
+  /** The trust score object */
+  score: TrustScore;
+  /** Timestamp when the entry was cached */
+  timestamp: number;
+}
+
+/**
+ * Cache data structure organized by language and package name.
+ */
+export interface CacheData {
+  [language: string]: {
+    [packageName: string]: CacheEntry;
+  };
 }
 
 /**

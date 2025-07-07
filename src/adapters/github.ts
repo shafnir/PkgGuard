@@ -104,8 +104,7 @@ export async function fetchGitHubStats(
 
     cache.set(repoUrl, { stats, timestamp: now });
     return stats;
-  } catch (error) {
-    console.error(`Error fetching GitHub stats for ${repoUrl}:`, error);
+  } catch {
     return null;
   }
 }

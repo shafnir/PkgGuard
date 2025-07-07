@@ -1,7 +1,6 @@
 *.vsix
 .pkgguard-ignore
 .pkgguard-report.txt
-CLAUDE.md
 python-stdlib-update.md
 .claude/settings.local.json
 
@@ -63,3 +62,9 @@ docs/TERMINAL_INTEGRATION.md
 
 # Test files
 test-*
+
+# Claude internal files
+.bash_history
+.claude.json
+.claude/
+.npm/

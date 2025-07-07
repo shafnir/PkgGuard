@@ -1,4 +1,5 @@
-import { RegistryInfo, TrustScore } from "../types";
+import * as process from "node:process";
+import { RegistryInfo, TrustScore, Scorer } from "../types";
 import { fetchGitHubStats } from "../adapters/github";
 import { isIgnoredPackage, getCachedScore, setCachedScore } from "./index";
 
@@ -48,7 +49,7 @@ const NODE_BUILTINS = new Set([
   "zlib",
 ]);
 
-export class JavaScriptScoringEngine {
+export class JavaScriptScoringEngine implements Scorer {
   public static setTopPackages(
     pkgs: { package: string; downloads: number }[] | string[],
   ) {
@@ -72,8 +73,8 @@ export class JavaScriptScoringEngine {
   ): Promise<TrustScore> {
     // Build registry URL
     let registryUrl = "";
-    if ((info as any).registryUrl) {
-      registryUrl = (info as any).registryUrl;
+    if (info.registryUrl) {
+      registryUrl = info.registryUrl;
     } else if (name.match(/^[a-zA-Z0-9._-]+$/)) {
       registryUrl = `https://www.npmjs.com/package/${name}`;
     }
@@ -83,8 +84,8 @@ export class JavaScriptScoringEngine {
     if (ignore.ignored) {
       return {
         packageName: name,
-        score: null as any,
-        level: "ignored" as any,
+        score: null,
+        level: "ignored",
         evidence: {
           exists: true,
           downloads: 0,
@@ -104,12 +105,9 @@ export class JavaScriptScoringEngine {
     }
 
     // Persistent cache check (javascript)
-    const ttl =
-      typeof process !== "undefined" &&
-      process.env &&
-      process.env.PKG_GUARD_CACHE_TTL
-        ? parseInt(process.env.PKG_GUARD_CACHE_TTL)
-        : 172800;
+    const ttl = process.env.PKG_GUARD_CACHE_TTL
+      ? parseInt(process.env.PKG_GUARD_CACHE_TTL)
+      : 172800;
     const cached = getCachedScore("javascript", name, ttl);
     if (cached) return cached;
 
@@ -186,12 +184,10 @@ export class JavaScriptScoringEngine {
     const highRiskFactors: string[] = [];
     const mediumRiskFactors: string[] = [];
 
-    let yearsAgo: number | null = null;
     if (githubStats && githubStats.lastCommit > 0) {
       const years = Math.floor(
         (Date.now() - githubStats.lastCommit) / (1000 * 60 * 60 * 24 * 365),
       );
-      yearsAgo = years;
       if (years >= 2) {
         highRiskFactors.push(
           `No updates on GitHub for over 2 years (last update: ${years} year${years === 1 ? "" : "s"} ago).`,
@@ -278,6 +274,7 @@ export class JavaScriptScoringEngine {
         packageName: name,
         score: 0,
         level: "low",
+        ecosystem: "javascript",
         evidence: { ...evidence, registryUrl, githubRepo: info.githubRepo },
         scoreReasons: filteredScoreReasons,
         topDownloads,
@@ -295,6 +292,7 @@ export class JavaScriptScoringEngine {
       packageName: name,
       score: Math.round(score),
       level,
+      ecosystem: "javascript",
       evidence: { ...evidence, registryUrl, githubRepo: info.githubRepo },
       scoreReasons: filteredScoreReasons,
       topDownloads,

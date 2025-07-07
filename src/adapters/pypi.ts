@@ -134,7 +134,7 @@ export class PyPIAdapter implements RegistryAdapter {
         };
         downloads = pypiStatsData.data?.last_month || 0;
       }
-    } catch (e) {
+    } catch {
       // Ignore PyPI Stats API errors, fallback to 0
     }
 
@@ -197,7 +197,7 @@ export class PyPIAdapter implements RegistryAdapter {
     if (githubRepo) {
       try {
         const repoMatch = githubRepo.match(
-          /github\.com\/([\w\-\.]+)\/([\w\-\.]+)/,
+          /github\.com\/([\w\-.]+)\/([\w\-.]+)/,
         );
         if (repoMatch) {
           const owner = repoMatch[1];
@@ -214,7 +214,9 @@ export class PyPIAdapter implements RegistryAdapter {
             }
           }
         }
-      } catch {}
+      } catch {
+        // Ignore GitHub API errors, fall back to PyPI maintainer count
+      }
     }
 
     const result: RegistryInfo = {

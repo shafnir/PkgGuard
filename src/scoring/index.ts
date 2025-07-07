@@ -6,11 +6,12 @@
  * @copilot.avoid any=true
  */
 
-import { RegistryInfo, TrustScore } from "../types";
+import { RegistryInfo, TrustScore, Scorer, CacheData } from "../types";
 import { fetchGitHubStats } from "../adapters/github";
 import * as vscode from "vscode";
 import * as path from "node:path";
 import * as fs from "node:fs";
+import * as process from "node:process";
 
 /**
  * Scoring weights for different factors.
@@ -243,7 +244,8 @@ const PYTHON_STDLIB = new Set([
 // Persistent workspace-level cache segmented by language
 const CACHE_FILE_NAME = ".pkgguard-cache.json";
 let cacheFilePath: string | null = null;
-let cacheData: any = {};
+
+let cacheData: CacheData = {};
 
 // Global storage for when no workspace is available
 let globalStoragePath: string | null = null;
@@ -263,7 +265,6 @@ function getStoragePath(): string | null {
  */
 function migrateWorkspaceDataToGlobal(): void {
   if (!globalStoragePath) return;
-
 
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) return;
@@ -285,10 +286,7 @@ function migrateWorkspaceDataToGlobal(): void {
       workspacePkgGuardDir,
       ".pkgguard-ignore",
     );
-    const globalIgnoreFile = path.join(
-      globalPkgGuardDir,
-      ".pkgguard-ignore",
-    );
+    const globalIgnoreFile = path.join(globalPkgGuardDir, ".pkgguard-ignore");
 
     if (fs.existsSync(workspaceIgnoreFile)) {
       const workspaceIgnoreContent = fs.readFileSync(
@@ -298,10 +296,7 @@ function migrateWorkspaceDataToGlobal(): void {
 
       if (fs.existsSync(globalIgnoreFile)) {
         // Merge with existing global ignore file
-        const globalIgnoreContent = fs.readFileSync(
-          globalIgnoreFile,
-          "utf-8",
-        );
+        const globalIgnoreContent = fs.readFileSync(globalIgnoreFile, "utf-8");
         const workspaceLines = workspaceIgnoreContent
           .split(/\r?\n/)
           .filter((line: string) => line.trim());
@@ -330,15 +325,15 @@ function migrateWorkspaceDataToGlobal(): void {
 
     if (fs.existsSync(workspaceCacheFile)) {
       try {
-        const workspaceCacheData = JSON.parse(
+        const workspaceCacheData: CacheData = JSON.parse(
           fs.readFileSync(workspaceCacheFile, "utf-8"),
-        );
+        ) as CacheData;
 
         if (fs.existsSync(globalCacheFile)) {
           // Merge with existing global cache
-          const globalCacheData = JSON.parse(
+          const globalCacheData: CacheData = JSON.parse(
             fs.readFileSync(globalCacheFile, "utf-8"),
-          );
+          ) as CacheData;
 
           // Merge cache data by language and package
           for (const language in workspaceCacheData) {
@@ -349,8 +344,9 @@ function migrateWorkspaceDataToGlobal(): void {
               const globalEntry = globalCacheData[language][packageName];
 
               if (
-                !globalEntry ||
-                workspaceEntry.timestamp > globalEntry.timestamp
+                workspaceEntry &&
+                (!globalEntry ||
+                  workspaceEntry.timestamp > globalEntry.timestamp)
               ) {
                 globalCacheData[language][packageName] = workspaceEntry;
               }
@@ -368,11 +364,8 @@ function migrateWorkspaceDataToGlobal(): void {
             JSON.stringify(workspaceCacheData, null, 2),
           );
         }
-      } catch (error) {
-        console.warn(
-          "PkgGuard: Failed to migrate cache data from workspace:",
-          error,
-        );
+      } catch {
+        // Failed to migrate cache data from workspace - silent fallback
       }
     }
   }
@@ -381,7 +374,7 @@ function migrateWorkspaceDataToGlobal(): void {
 /**
  * Scoring engine for package trust evaluation.
  */
-export class ScoringEngine {
+export class ScoringEngine implements Scorer {
   private recentlyIgnored: Set<string> = new Set();
 
   /**
@@ -421,6 +414,7 @@ export class ScoringEngine {
         packageName: name,
         score: 100,
         level: "high" as const,
+        ecosystem: "python" as const,
         evidence: {
           exists: true,
           downloads: 0,
@@ -428,7 +422,7 @@ export class ScoringEngine {
           multipleMaintainers: true,
           vulnerabilities: 0,
           maintainerCount: 0,
-          registryUrl: "",
+          registryUrl: `https://docs.python.org/3/library/${name}.html`,
         },
         scoreReasons: [
           "📦 This is a Python standard library module and is always trusted.",
@@ -451,8 +445,8 @@ export class ScoringEngine {
     if (ignore.ignored) {
       return {
         packageName: name,
-        score: null as any,
-        level: "ignored" as any,
+        score: null,
+        level: "ignored" as const,
         evidence: {
           exists: true,
           downloads: 0,
@@ -605,12 +599,10 @@ export class ScoringEngine {
     const highRiskFactors: string[] = [];
     const mediumRiskFactors: string[] = [];
 
-    let yearsAgo: number | null = null;
     if (githubStats && githubStats.lastCommit > 0) {
       const years = Math.floor(
         (Date.now() - githubStats.lastCommit) / (1000 * 60 * 60 * 24 * 365),
       );
-      yearsAgo = years;
       if (years >= 2) {
         highRiskFactors.push(
           `No updates on GitHub for over 2 years (last update: ${years} year${years === 1 ? "" : "s"} ago).`,
@@ -692,6 +684,7 @@ export class ScoringEngine {
         packageName: name,
         score: 0,
         level: "low",
+        ecosystem: "python",
         evidence: {
           ...evidence,
           registryUrl: info.registryUrl,
@@ -717,6 +710,7 @@ export class ScoringEngine {
       packageName: name,
       score: Math.round(score),
       level,
+      ecosystem: "python",
       evidence: {
         ...evidence,
         registryUrl: info.registryUrl,
@@ -796,11 +790,11 @@ export class ScoringEngine {
     if (!a || !b) return Math.max(a?.length ?? 0, b?.length ?? 0);
     const aLen = a.length;
     const bLen = b.length;
-    const matrix = Array.from({ length: aLen + 1 }, () =>
-      new Array(bLen + 1).fill(0),
+    const matrix = Array.from(
+      { length: aLen + 1 },
+      () => new Array(bLen + 1).fill(0) as number[],
     ) as number[][];
-    for (let i = 0; i <= aLen; i++) matrix[i]![0] = i;
-    for (let j = 0; j <= bLen; j++) matrix[0]![j] = j;
+
     function getMatrix(matrix: number[][], i: number, j: number): number {
       return matrix[i] && matrix[i][j] !== undefined ? matrix[i][j] : Infinity;
     }
@@ -812,6 +806,9 @@ export class ScoringEngine {
     ) {
       if (matrix[i]) matrix[i][j] = value;
     }
+
+    for (let i = 0; i <= aLen; i++) setMatrix(matrix, i, 0, i);
+    for (let j = 0; j <= bLen; j++) setMatrix(matrix, 0, j, j);
     for (let i = 1; i <= aLen; i++) {
       for (let j = 1; j <= bLen; j++) {
         const aChar = a.charAt(i - 1);
@@ -827,7 +824,7 @@ export class ScoringEngine {
         );
       }
     }
-    return matrix[aLen]![bLen]!;
+    return getMatrix(matrix, aLen, bLen);
   }
 
   // Aggressive GitHub detection: extract GitHub repo from all available links
@@ -838,17 +835,25 @@ export class ScoringEngine {
     const githubRegex =
       /https?:\/\/(www\.)?github\.com\/([\w.-]+)\/([\w.-]+)(\/|$)/i;
     const links: string[] = [];
-    if (typeof (info as any).homepage === "string")
-      links.push((info as any).homepage);
+
+    // PyPI info might have additional properties not in RegistryInfo interface
+    const extendedInfo = info as RegistryInfo & {
+      homepage?: string;
+      projectUrls?: Record<string, string>;
+    };
+
+    if (typeof extendedInfo.homepage === "string") {
+      links.push(extendedInfo.homepage);
+    }
+
     if (
-      (info as any).projectUrls &&
-      typeof (info as any).projectUrls === "object"
+      extendedInfo.projectUrls &&
+      typeof extendedInfo.projectUrls === "object"
     ) {
-      const projectUrls = (info as any).projectUrls;
-      if (projectUrls) {
-        for (const key in projectUrls) {
-          if (typeof projectUrls[key] === "string")
-            links.push(projectUrls[key]);
+      for (const key in extendedInfo.projectUrls) {
+        const url = extendedInfo.projectUrls[key];
+        if (typeof url === "string") {
+          links.push(url);
         }
       }
     }
@@ -891,8 +896,7 @@ export function loadIgnoreFile() {
   }
 
   const guardDir = path.join(storagePath, ".pkgguard");
-  if (!fs.existsSync(guardDir))
-    fs.mkdirSync(guardDir, { recursive: true });
+  if (!fs.existsSync(guardDir)) fs.mkdirSync(guardDir, { recursive: true });
   ignoreFilePath = path.join(guardDir, ".pkgguard-ignore");
   ignoredPackages.clear();
   if (fs.existsSync(ignoreFilePath)) {
@@ -930,12 +934,13 @@ export function loadCacheFile() {
   }
 
   const guardDir = path.join(storagePath, ".pkgguard");
-  if (!fs.existsSync(guardDir))
-    fs.mkdirSync(guardDir, { recursive: true });
+  if (!fs.existsSync(guardDir)) fs.mkdirSync(guardDir, { recursive: true });
   cacheFilePath = path.join(guardDir, CACHE_FILE_NAME);
   if (fs.existsSync(cacheFilePath)) {
     try {
-      cacheData = JSON.parse(fs.readFileSync(cacheFilePath, "utf-8"));
+      cacheData = JSON.parse(
+        fs.readFileSync(cacheFilePath, "utf-8"),
+      ) as CacheData;
     } catch {
       cacheData = {};
     }
@@ -948,7 +953,7 @@ export function getCachedScore(
   language: string,
   packageName: string,
   ttlSeconds: number,
-): any | null {
+): TrustScore | null {
   const storagePath = getStoragePath();
   if (storagePath) loadCacheFile();
   if (!cacheData[language] || !cacheData[language][packageName]) return null;
@@ -961,7 +966,7 @@ export function getCachedScore(
 export function setCachedScore(
   language: string,
   packageName: string,
-  score: any,
+  score: TrustScore,
 ) {
   const storagePath = getStoragePath();
   if (storagePath) loadCacheFile();
@@ -975,7 +980,9 @@ export function setCachedScore(
   cacheData[language][packageName] = { score, timestamp: Date.now() };
   try {
     fs.writeFileSync(cacheFilePath, JSON.stringify(cacheData, null, 2));
-  } catch {}
+  } catch {
+    // Ignore cache write errors
+  }
 }
 
 export function clearCacheFile() {
@@ -999,7 +1006,10 @@ export function removeCachedScore(language: string, packageName: string) {
     if (storagePath) loadCacheFile();
   }
   if (cacheData[language] && cacheData[language][packageName]) {
-    delete cacheData[language][packageName];
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { [packageName]: _removedEntry, ...rest } = cacheData[language];
+    // _removedEntry is intentionally unused - it's the entry being removed
+    cacheData[language] = rest;
     if (cacheFilePath) {
       // Ensure .pkgguard directory exists
       const dir = path.dirname(cacheFilePath);

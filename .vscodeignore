@@ -62,3 +62,14 @@ docs/TERMINAL_INTEGRATION.md
 test-*
 CLAUDE.md
 python-stdlib-update.md
+
+# Claude internal files
+.bash_history
+.claude.json
+.claude/
+.npm/
+
+# Project MD files
+project-schema.md
+tasks.md
+docs/**
