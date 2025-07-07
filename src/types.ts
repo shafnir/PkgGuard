@@ -95,6 +95,14 @@ export interface Detector {
 }
 
 /**
+ * Scoring engine interface.
+ */
+export interface Scorer {
+  /** Calculate trust score for a package */
+  calculateScore(name: string, info: RegistryInfo): Promise<TrustScore>;
+}
+
+/**
  * Validation service message types.
  */
 export type ValidationRequest = {

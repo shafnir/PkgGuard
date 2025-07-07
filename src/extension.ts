@@ -9,6 +9,8 @@
 import * as vscode from "vscode";
 import * as path from "node:path";
 import * as fs from "node:fs";
+import { setTimeout, clearTimeout } from "node:timers";
+import fetch from "node-fetch";
 import { PythonDetector } from "./detectors/python";
 import { PyPIAdapter } from "./adapters/pypi";
 import {
@@ -24,7 +26,13 @@ import {
 } from "./scoring";
 import { TrustDecorators } from "./ui/decorators";
 import { TrustHoverProvider } from "./ui/hovers";
-import { PackageName, TrustScore } from "./types";
+import {
+  PackageName,
+  TrustScore,
+  Detector,
+  RegistryAdapter,
+  Scorer,
+} from "./types";
 import { JavaScriptDetector } from "./detectors/javascript";
 import { NpmAdapter } from "./adapters/npm";
 import { JavaScriptScoringEngine } from "./scoring/javascript";
@@ -32,16 +40,20 @@ import { TOP_NPM_PACKAGES } from "./adapters/npm-top";
 import { TerminalPackageMonitor } from "./terminal/shell-integration";
 import { SimpleTerminalManager } from "./terminal/simple-terminal";
 
+interface TopPyPIResponse {
+  rows: { project: string; download_count: number }[];
+}
+
 let decorators: TrustDecorators | undefined;
 let hoverProvider: TrustHoverProvider | undefined;
 let diagnosticCollection: vscode.DiagnosticCollection | undefined;
-let debounceTimers: Map<string, NodeJS.Timeout> = new Map();
+let debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 let extensionEnabled: boolean = true;
 let statusBarItem: vscode.StatusBarItem | undefined;
 let terminalMonitor: TerminalPackageMonitor | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log("PkgGuard: Extension activation started");
+  // Extension activation started
 
   if (!decorators) decorators = new TrustDecorators();
   if (!hoverProvider) hoverProvider = new TrustHoverProvider();
@@ -56,8 +68,8 @@ export function activate(context: vscode.ExtensionContext) {
   // Migrate existing workspace data to global storage (one-time migration)
   try {
     migrateWorkspaceDataToGlobal();
-  } catch (error) {
-    console.warn("PkgGuard: Migration warning:", error);
+  } catch {
+    // Migration warning - silent fallback
   }
 
   // Read initial enabled state
@@ -68,12 +80,15 @@ export function activate(context: vscode.ExtensionContext) {
   // Fetch and cache the top PyPI packages list
   fetch("https://hugovk.github.io/top-pypi-packages/top-pypi-packages.min.json")
     .then((res) => res.json())
-    .then((data: any) => {
-      if (Array.isArray(data.rows)) {
-        ScoringEngine.setTopPackages(data.rows);
+    .then((data) => {
+      const typedData = data as TopPyPIResponse;
+      if (Array.isArray(typedData.rows)) {
+        ScoringEngine.setTopPackages(typedData.rows);
       }
     })
-    .catch(() => {});
+    .catch(() => {
+      // Ignore errors fetching top packages list
+    });
 
   // Load ignore file and cache from global storage
   loadIgnoreFile();
@@ -110,15 +125,10 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   // Register simple terminal commands
-  console.log("PkgGuard: Registering simple terminal commands");
   try {
     SimpleTerminalManager.registerCommands(context);
-    console.log("PkgGuard: Simple terminal commands registered successfully");
+    // Simple terminal commands registered successfully
   } catch (error) {
-    console.error(
-      "PkgGuard: Failed to register simple terminal commands:",
-      error,
-    );
     vscode.window.showErrorMessage(
       `PkgGuard: Failed to register terminal commands: ${(error as Error).message}`,
     );
@@ -239,7 +249,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "pkgguard.unignorePackage",
-      async (packageNameArg?: string) => {
+      (packageNameArg?: string) => {
         if (!packageNameArg) {
           vscode.window.showErrorMessage(
             "PkgGuard: Could not determine package to unignore. Please use the hover UI.",
@@ -285,7 +295,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register clear cache command
   context.subscriptions.push(
-    vscode.commands.registerCommand("pkg-guard.clearCache", async () => {
+    vscode.commands.registerCommand("pkg-guard.clearCache", () => {
       // Always use global storage
       clearCacheFile();
       loadCacheFile();
@@ -334,15 +344,15 @@ export function activate(context: vscode.ExtensionContext) {
   function updateStatusBar() {
     if (!statusBarItem) return;
     if (extensionEnabled) {
-      statusBarItem!.text = "$(shield) PkgGuard: On";
-      statusBarItem!.color = "#2ecc40"; // green
-      statusBarItem!.tooltip = "PkgGuard is enabled. Click to disable.";
+      statusBarItem.text = "$(shield) PkgGuard: On";
+      statusBarItem.color = "#2ecc40"; // green
+      statusBarItem.tooltip = "PkgGuard is enabled. Click to disable.";
     } else {
-      statusBarItem!.text = "$(shield) PkgGuard: Off";
-      statusBarItem!.color = "#888888"; // gray
-      statusBarItem!.tooltip = "PkgGuard is disabled. Click to enable.";
+      statusBarItem.text = "$(shield) PkgGuard: Off";
+      statusBarItem.color = "#888888"; // gray
+      statusBarItem.tooltip = "PkgGuard is disabled. Click to enable.";
     }
-    statusBarItem!.show();
+    statusBarItem.show();
   }
   updateStatusBar();
   context.subscriptions.push(statusBarItem);
@@ -533,9 +543,9 @@ async function validateAndDecorate(doc: vscode.TextDocument) {
     if (diagnosticCollection) diagnosticCollection.set(doc.uri, []);
     return;
   }
-  let detector: any;
-  let adapter: any;
-  let scoring: any;
+  let detector: Detector;
+  let adapter: RegistryAdapter;
+  let scoring: Scorer;
   let language: string;
   if (doc.languageId === "python") {
     detector = new PythonDetector();

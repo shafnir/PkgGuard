@@ -6,11 +6,12 @@
  * @copilot.avoid any=true
  */
 
-import { RegistryInfo, TrustScore } from "../types";
+import { RegistryInfo, TrustScore, Scorer } from "../types";
 import { fetchGitHubStats } from "../adapters/github";
 import * as vscode from "vscode";
 import * as path from "node:path";
 import * as fs from "node:fs";
+import * as process from "node:process";
 
 /**
  * Scoring weights for different factors.
@@ -243,7 +244,19 @@ const PYTHON_STDLIB = new Set([
 // Persistent workspace-level cache segmented by language
 const CACHE_FILE_NAME = ".pkgguard-cache.json";
 let cacheFilePath: string | null = null;
-let cacheData: any = {};
+
+interface CacheEntry {
+  score: TrustScore;
+  timestamp: number;
+}
+
+interface CacheData {
+  [language: string]: {
+    [packageName: string]: CacheEntry;
+  };
+}
+
+let cacheData: CacheData = {};
 
 // Global storage for when no workspace is available
 let globalStoragePath: string | null = null;
@@ -361,11 +374,8 @@ function migrateWorkspaceDataToGlobal(): void {
             JSON.stringify(workspaceCacheData, null, 2),
           );
         }
-      } catch (error) {
-        console.warn(
-          "PkgGuard: Failed to migrate cache data from workspace:",
-          error,
-        );
+      } catch {
+        // Failed to migrate cache data from workspace - silent fallback
       }
     }
   }
@@ -374,7 +384,7 @@ function migrateWorkspaceDataToGlobal(): void {
 /**
  * Scoring engine for package trust evaluation.
  */
-export class ScoringEngine {
+export class ScoringEngine implements Scorer {
   private recentlyIgnored: Set<string> = new Set();
 
   /**
@@ -444,8 +454,8 @@ export class ScoringEngine {
     if (ignore.ignored) {
       return {
         packageName: name,
-        score: null as any,
-        level: "ignored" as any,
+        score: null,
+        level: "ignored" as const,
         evidence: {
           exists: true,
           downloads: 0,
@@ -790,8 +800,7 @@ export class ScoringEngine {
     const matrix = Array.from({ length: aLen + 1 }, () =>
       new Array(bLen + 1).fill(0),
     ) as number[][];
-    for (let i = 0; i <= aLen; i++) matrix[i]![0] = i;
-    for (let j = 0; j <= bLen; j++) matrix[0]![j] = j;
+    
     function getMatrix(matrix: number[][], i: number, j: number): number {
       return matrix[i] && matrix[i][j] !== undefined ? matrix[i][j] : Infinity;
     }
@@ -803,6 +812,9 @@ export class ScoringEngine {
     ) {
       if (matrix[i]) matrix[i][j] = value;
     }
+    
+    for (let i = 0; i <= aLen; i++) setMatrix(matrix, i, 0, i);
+    for (let j = 0; j <= bLen; j++) setMatrix(matrix, 0, j, j);
     for (let i = 1; i <= aLen; i++) {
       for (let j = 1; j <= bLen; j++) {
         const aChar = a.charAt(i - 1);
@@ -818,7 +830,7 @@ export class ScoringEngine {
         );
       }
     }
-    return matrix[aLen]![bLen]!;
+    return getMatrix(matrix, aLen, bLen);
   }
 
   // Aggressive GitHub detection: extract GitHub repo from all available links
@@ -829,17 +841,25 @@ export class ScoringEngine {
     const githubRegex =
       /https?:\/\/(www\.)?github\.com\/([\w.-]+)\/([\w.-]+)(\/|$)/i;
     const links: string[] = [];
-    if (typeof (info as any).homepage === "string")
-      links.push((info as any).homepage);
+
+    // PyPI info might have additional properties not in RegistryInfo interface
+    const extendedInfo = info as RegistryInfo & {
+      homepage?: string;
+      projectUrls?: Record<string, string>;
+    };
+
+    if (typeof extendedInfo.homepage === "string") {
+      links.push(extendedInfo.homepage);
+    }
+
     if (
-      (info as any).projectUrls &&
-      typeof (info as any).projectUrls === "object"
+      extendedInfo.projectUrls &&
+      typeof extendedInfo.projectUrls === "object"
     ) {
-      const projectUrls = (info as any).projectUrls;
-      if (projectUrls) {
-        for (const key in projectUrls) {
-          if (typeof projectUrls[key] === "string")
-            links.push(projectUrls[key]);
+      for (const key in extendedInfo.projectUrls) {
+        const url = extendedInfo.projectUrls[key];
+        if (typeof url === "string") {
+          links.push(url);
         }
       }
     }
@@ -937,7 +957,7 @@ export function getCachedScore(
   language: string,
   packageName: string,
   ttlSeconds: number,
-): any | null {
+): TrustScore | null {
   const storagePath = getStoragePath();
   if (storagePath) loadCacheFile();
   if (!cacheData[language] || !cacheData[language][packageName]) return null;
@@ -950,7 +970,7 @@ export function getCachedScore(
 export function setCachedScore(
   language: string,
   packageName: string,
-  score: any,
+  score: TrustScore,
 ) {
   const storagePath = getStoragePath();
   if (storagePath) loadCacheFile();
@@ -964,7 +984,9 @@ export function setCachedScore(
   cacheData[language][packageName] = { score, timestamp: Date.now() };
   try {
     fs.writeFileSync(cacheFilePath, JSON.stringify(cacheData, null, 2));
-  } catch {}
+  } catch {
+    // Ignore cache write errors
+  }
 }
 
 export function clearCacheFile() {

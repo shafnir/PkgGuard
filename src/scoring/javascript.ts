@@ -1,4 +1,4 @@
-import { RegistryInfo, TrustScore } from "../types";
+import { RegistryInfo, TrustScore, Scorer } from "../types";
 import { fetchGitHubStats } from "../adapters/github";
 import { isIgnoredPackage, getCachedScore, setCachedScore } from "./index";
 
@@ -48,7 +48,7 @@ const NODE_BUILTINS = new Set([
   "zlib",
 ]);
 
-export class JavaScriptScoringEngine {
+export class JavaScriptScoringEngine implements Scorer {
   public static setTopPackages(
     pkgs: { package: string; downloads: number }[] | string[],
   ) {

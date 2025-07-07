@@ -28,6 +28,13 @@ interface NpmPackageData {
   };
 }
 
+interface NpmDownloadStats {
+  downloads: number;
+  start?: string;
+  end?: string;
+  package?: string;
+}
+
 export class NpmAdapter implements RegistryAdapter {
   private readonly baseUrl = "https://registry.npmjs.org";
   // In-memory cache for meta results
@@ -125,7 +132,7 @@ export class NpmAdapter implements RegistryAdapter {
         `https://api.npmjs.org/downloads/point/last-week/${encodeURIComponent(name)}`,
       );
       if (statsResp.ok) {
-        const statsData: any = await statsResp.json();
+        const statsData = (await statsResp.json()) as NpmDownloadStats;
         downloads = statsData.downloads || 0;
       } else {
         // fallback to monthly
@@ -133,21 +140,21 @@ export class NpmAdapter implements RegistryAdapter {
           `https://api.npmjs.org/downloads/point/last-month/${encodeURIComponent(name)}`,
         );
         if (statsResp.ok) {
-          const statsData: any = await statsResp.json();
+          const statsData = (await statsResp.json()) as NpmDownloadStats;
           const daysInMonth = 30; // npm API does not provide days, so estimate
           downloads = Math.round(
             ((statsData.downloads || 0) / daysInMonth) * 7,
           );
         }
       }
-    } catch (e) {
+    } catch {
       // Ignore errors, fallback to 0
     }
     // If GitHub repo found, try to fetch contributors as maintainers
     if ((!maintainerCount || maintainerCount === 1) && githubRepo) {
       try {
         const repoMatch = githubRepo.match(
-          /github\.com\/([\w\-\.]+)\/([\w\-\.]+)/,
+          /github\.com\/([\w\-.]+)\/([\w\-.]+)/,
         );
         if (repoMatch) {
           const owner = repoMatch[1];
@@ -164,7 +171,9 @@ export class NpmAdapter implements RegistryAdapter {
             }
           }
         }
-      } catch {}
+      } catch {
+        // Ignore GitHub API errors, fall back to package maintainer count
+      }
     }
     const result: RegistryInfo = {
       exists: true,
