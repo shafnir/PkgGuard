@@ -9,7 +9,12 @@ import * as vscode from "vscode";
 // import { JavaScriptDetector } from '../detectors/javascript';
 import { PyPIAdapter } from "../adapters/pypi";
 import { NpmAdapter } from "../adapters/npm";
-import { ScoringEngine } from "../scoring";
+import {
+  ScoringEngine,
+  getCachedScore,
+  setCachedScore,
+  loadCacheFile,
+} from "../scoring";
 import { JavaScriptScoringEngine } from "../scoring/javascript";
 import { TrustScore } from "../types";
 
@@ -169,9 +174,25 @@ export class TerminalPackageMonitor {
       ecosystem: string;
     }> = [];
 
+    // Load cache first
+    loadCacheFile();
+    const ttl = 172800; // 48 hours, same as UI
+
     // Analyze each package
     for (const pkg of packages) {
       try {
+        // Check cache first
+        const cachedScore = getCachedScore(pkg.ecosystem, pkg.name, ttl);
+        if (cachedScore) {
+          results.push({
+            package: pkg.name,
+            score: cachedScore,
+            ecosystem: pkg.ecosystem,
+          });
+          continue;
+        }
+
+        // Not cached, fetch and score
         let adapter: PyPIAdapter | NpmAdapter;
         let scoring: ScoringEngine | JavaScriptScoringEngine;
 
@@ -185,6 +206,9 @@ export class TerminalPackageMonitor {
 
         const meta = await adapter.meta(pkg.name);
         const score = await scoring.calculateScore(pkg.name, meta);
+
+        // Cache the result
+        setCachedScore(pkg.ecosystem, pkg.name, score);
 
         results.push({
           package: pkg.name,

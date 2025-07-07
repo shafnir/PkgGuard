@@ -203,6 +203,16 @@ export function activate(context: vscode.ExtensionContext) {
     );
   }
 
+  // Register terminal profile provider
+  try {
+    SimpleTerminalManager.registerTerminalProfileProvider(context);
+    // Terminal profile provider registered successfully
+  } catch (error) {
+    vscode.window.showErrorMessage(
+      `PkgGuard: Failed to register terminal profile provider: ${(error as Error).message}`,
+    );
+  }
+
   // Register hover provider for Python and JavaScript/TypeScript
   context.subscriptions.push(
     vscode.languages.registerHoverProvider(
@@ -491,9 +501,10 @@ export function activate(context: vscode.ExtensionContext) {
         disabled: "Disabled - No security checks",
       };
 
+      // Show a consolidated message with mode description
       vscode.window
         .showInformationMessage(
-          `PkgGuard Security Mode: ${modeDescriptions[nextMode as keyof typeof modeDescriptions]}`,
+          `PkgGuard Security Mode: ${modeDescriptions[nextMode as keyof typeof modeDescriptions]} (Updated globally)`,
           "Open Settings",
         )
         .then((selection) => {
@@ -506,11 +517,6 @@ export function activate(context: vscode.ExtensionContext) {
         });
 
       // Mode change completed
-
-      // Always use global settings now
-      vscode.window.showInformationMessage(
-        "PkgGuard: Setting updated globally.",
-      );
     }),
   );
 
