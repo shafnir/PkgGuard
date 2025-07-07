@@ -49,6 +49,8 @@ export interface TrustScore {
   score: number | null;
   /** The trust level (🟢, 🟡, 🔴, or ⚪ for ignored) */
   level: "high" | "medium" | "low" | "ignored";
+  /** The ecosystem/language (for display purposes) */
+  ecosystem?: "python" | "javascript";
   /** The evidence used to calculate the score */
   evidence: {
     exists: boolean;

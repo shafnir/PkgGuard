@@ -2,7 +2,7 @@
   "name": "pkgguard",
   "displayName": "PkgGuard",
   "description": "VS Code extension that guards against hallucinated or malicious package imports",
-  "version": "0.6.9",
+  "version": "0.6.10",
   "repository": {
     "type": "git",
     "url": "https://github.com/shafnir/PkgGuard"
@@ -34,19 +34,19 @@
     "commands": [
       {
         "command": "pkg-guard.validateCurrentFile",
-        "title": "Package Guard: Validate Current File"
+        "title": "PkgGuard: Validate Current File"
       },
       {
         "command": "pkg-guard.clearCache",
-        "title": "Package Guard: Clear Cache"
+        "title": "PkgGuard: Clear Cache"
       },
       {
         "command": "pkg-guard.showDiagnostics",
-        "title": "Package Guard: Show Diagnostics"
+        "title": "PkgGuard: Show Diagnostics"
       },
       {
         "command": "pkg-guard.openCacheFile",
-        "title": "Package Guard: Open Cache File"
+        "title": "PkgGuard: Open Cache File"
       },
       {
         "command": "pkgguard.ignorePackage",
@@ -66,7 +66,7 @@
       }
     ],
     "configuration": {
-      "title": "Package Guard",
+      "title": "PkgGuard",
       "properties": {
         "pkgGuard.enabled": {
           "type": "boolean",

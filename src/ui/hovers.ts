@@ -161,10 +161,12 @@ export class TrustHoverProvider implements vscode.HoverProvider {
     markdown.appendMarkdown(
       `- ${evidence.exists ? "✅" : "❌"} Package exists on registry\n`,
     );
-    // Download data: show from PyPI Stats (monthly), or for top packages, from top-pypi-packages JSON
+    // Download data: show period based on ecosystem
     if (evidence.downloads > 0) {
+      const downloadPeriod =
+        score.ecosystem === "javascript" ? "/Week" : "/Month";
       markdown.appendMarkdown(
-        `- 📦 Downloads: ${evidence.downloads.toLocaleString()}/Month\n`,
+        `- 📦 Downloads: ${evidence.downloads.toLocaleString()}${downloadPeriod}\n`,
       );
     } else if (score.topDownloads && score.topDownloads > 0) {
       markdown.appendMarkdown(

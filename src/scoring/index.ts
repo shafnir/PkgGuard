@@ -683,6 +683,7 @@ export class ScoringEngine implements Scorer {
         packageName: name,
         score: 0,
         level: "low",
+        ecosystem: "python",
         evidence: {
           ...evidence,
           registryUrl: info.registryUrl,
@@ -708,6 +709,7 @@ export class ScoringEngine implements Scorer {
       packageName: name,
       score: Math.round(score),
       level,
+      ecosystem: "python",
       evidence: {
         ...evidence,
         registryUrl: info.registryUrl,

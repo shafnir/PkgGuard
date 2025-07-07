@@ -421,12 +421,8 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("pkg-guard.toggleEnabled", async () => {
       const config = vscode.workspace.getConfiguration();
       const current = config.get("pkgGuard.enabled", true);
-      const hasWorkspace =
-        vscode.workspace.workspaceFolders &&
-        vscode.workspace.workspaceFolders.length > 0;
-      const target = hasWorkspace
-        ? vscode.ConfigurationTarget.Workspace
-        : vscode.ConfigurationTarget.Global;
+      // Always use global configuration to avoid polluting workspace
+      const target = vscode.ConfigurationTarget.Global;
       await config.update("pkgGuard.enabled", !current, target);
       extensionEnabled = !current;
       updateStatusBar();
@@ -453,11 +449,10 @@ export function activate(context: vscode.ExtensionContext) {
           "PkgGuard: Extension enabled. Trust badges and diagnostics are active.",
         );
       }
-      if (!hasWorkspace) {
-        vscode.window.showInformationMessage(
-          "PkgGuard: Setting updated for User (no workspace open).",
-        );
-      }
+      // Always use global settings now
+      vscode.window.showInformationMessage(
+        "PkgGuard: Setting updated globally.",
+      );
     }),
   );
 
@@ -473,12 +468,8 @@ export function activate(context: vscode.ExtensionContext) {
       const nextIndex = (currentIndex + 1) % modes.length;
       const nextMode = modes[nextIndex];
 
-      const hasWorkspace =
-        vscode.workspace.workspaceFolders &&
-        vscode.workspace.workspaceFolders.length > 0;
-      const target = hasWorkspace
-        ? vscode.ConfigurationTarget.Workspace
-        : vscode.ConfigurationTarget.Global;
+      // Always use global configuration to avoid polluting workspace
+      const target = vscode.ConfigurationTarget.Global;
 
       await config.update("pkgGuard.securityMode", nextMode, target);
 
@@ -504,11 +495,10 @@ export function activate(context: vscode.ExtensionContext) {
           }
         });
 
-      if (!hasWorkspace) {
-        vscode.window.showInformationMessage(
-          "PkgGuard: Setting updated for User (no workspace open).",
-        );
-      }
+      // Always use global settings now
+      vscode.window.showInformationMessage(
+        "PkgGuard: Setting updated globally.",
+      );
     }),
   );
 

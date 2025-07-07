@@ -114,7 +114,7 @@ export class NpmAdapter implements RegistryAdapter {
       }
     }
     maintainerCount = uniqueMaintainers.size;
-    // Get GitHub repo
+    // Get GitHub repo - handle various Git URL formats
     let githubRepo: string | undefined = undefined;
     if (
       data.repository?.url &&
@@ -122,8 +122,9 @@ export class NpmAdapter implements RegistryAdapter {
       data.repository.url.includes("github.com")
     ) {
       githubRepo = data.repository.url
-        .replace(/^git\+/, "")
-        .replace(/\.git$/, "");
+        .replace(/^git\+/, "") // Remove git+ prefix
+        .replace(/^git:\/\//, "https://") // Convert git:// to https://
+        .replace(/\.git$/, ""); // Remove .git suffix
     }
     // Fetch download count from npm API (weekly)
     let downloads = 0;

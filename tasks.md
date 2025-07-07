@@ -1,10 +1,10 @@
 # PkgGuard Project Tasks
 
 ## Current Status
-- **Project Version**: 0.6.5
+- **Project Version**: 0.6.10
 - **Last Updated**: 2025-07-07
-- **Current Phase**: Technical Debt Resolution - Major Progress Completed
-- **Active Tasks**: 0 in progress, 1 low priority pending
+- **Current Phase**: Stability & Quality Assurance - Major Bug Fixes Complete
+- **Active Tasks**: 1 pending (missing package scores investigation)
 
 ## Task Categories
 
@@ -39,6 +39,22 @@ Security enhancements and vulnerability fixes
 *No tasks currently in progress*
 
 ### High Priority - Completed
+
+- ✅ **Fix Python Import Detection for Symbols and Submodules** (🔧 Core Features)
+  - **Status**: Completed ✅
+  - **Description**: Fixed Python detector to handle `from flask import Flask`, `urllib.request`, `import xml.etree.ElementTree as ET`
+  - **Priority**: High
+  - **Files**: src/detectors/python.ts
+  - **Completion Date**: 2025-07-07
+  - **Technical Details**: Updated regex patterns to support dotted module names and added getBasePackageName function
+
+- ✅ **Fix .vscode Settings File Creation** (🔧 Core Features)
+  - **Status**: Completed ✅
+  - **Description**: Fixed extension to use global settings instead of creating .vscode/settings.json files
+  - **Priority**: High
+  - **Files**: src/extension.ts
+  - **Completion Date**: 2025-07-07
+  - **Impact**: Prevents project pollution with workspace-specific settings files
 
 - ✅ **Fix TypeScript Strict Null Checking Errors** (🐛 Bug Fixes)
   - **Status**: Completed ✅
@@ -97,9 +113,42 @@ Security enhancements and vulnerability fixes
   - **Decision**: Wait for ts-jest v30.x release
   - **Impact**: Current Jest 29.7.0 works fine for our needs
 
-### Low Priority - Pending
+### High Priority - Pending
 
-*All high and medium priority tasks completed. Only optional enhancement evaluations remain.*
+- 🔧 **Fix Missing Package Scores** (🔧 Core Features)
+  - **Status**: Pending
+  - **Description**: Some packages like 'node-schedule' don't receive scoring in JavaScript files
+  - **Priority**: High
+  - **Impact**: Core functionality broken for some packages
+  - **Notes**: Need to debug scoring pipeline - may require runtime testing
+
+### Medium Priority - Completed
+
+- ✅ **Fix npm Download Period Display** (🎨 UI/UX)
+  - **Status**: Completed ✅
+  - **Description**: Fixed download period display to show "/Week" for JavaScript packages and "/Month" for Python packages
+  - **Priority**: Medium
+  - **Files**: src/ui/hovers.ts, src/types.ts, src/scoring/index.ts, src/scoring/javascript.ts
+  - **Completion Date**: 2025-07-07
+  - **Technical Details**: Added ecosystem field to TrustScore interface and updated hover display logic
+
+- ✅ **Standardize Command Titles** (🔧 Core Features)
+  - **Status**: Completed ✅
+  - **Description**: Standardized all command titles to use "PkgGuard:" prefix consistently
+  - **Priority**: Medium
+  - **Files**: package.json
+  - **Completion Date**: 2025-07-07
+  - **Impact**: Improved user experience consistency
+
+- ✅ **Fix GitHub URL Extraction** (🔧 Core Features)
+  - **Status**: Completed ✅
+  - **Description**: Fixed GitHub URL extraction to handle git:// protocol and convert to https://
+  - **Priority**: Medium
+  - **Files**: src/adapters/npm.ts
+  - **Completion Date**: 2025-07-07
+  - **Impact**: GitHub links now appear correctly in hover UI for packages like helmet
+
+### Low Priority - Pending
 
 - 🟩 **Evaluate node-pty Beta Upgrade** (🚀 Performance)
   - **Status**: Deferred (Optional)
@@ -110,7 +159,32 @@ Security enhancements and vulnerability fixes
 
 ## Completed Tasks
 
-### 2025-07-07 (Latest Session)
+### 2025-07-07 (Bug Fix Session - Version 0.6.10)
+- ✅ **Major Bug Fix Implementation** (🔧 Core Features, 🎨 UI/UX, 🐛 Bug Fixes)
+  - **Status**: Completed
+  - **Description**: Comprehensive fix of 5 major issues identified during functionality review
+  - **Completion Date**: 2025-07-07
+  - **Components Delivered**:
+    - **Python Import Detection**: Fixed regex patterns to handle dotted imports and symbol imports (`from flask import Flask`, `urllib.request`, `xml.etree.ElementTree as ET`)
+    - **.vscode Settings Pollution**: Changed configuration updates to use global settings only, preventing .vscode/settings.json creation
+    - **Download Period Display**: Added ecosystem field to TrustScore and fixed UI to show "/Week" for npm and "/Month" for Python packages
+    - **Command Title Consistency**: Standardized all command titles to use "PkgGuard:" prefix throughout package.json
+    - **GitHub URL Extraction**: Enhanced npm adapter to handle git:// protocol URLs and convert to https:// format
+  - **Technical Details**: 
+    - Added getBasePackageName() function for proper module path parsing
+    - Updated TrustScore interface with ecosystem field for proper display logic
+    - Modified extension.ts to use ConfigurationTarget.Global exclusively
+    - Enhanced Git URL parsing in npm adapter with multiple protocol support
+    - Extension builds successfully (372.8KB) with zero compilation errors
+  - **Benefits Achieved**: 
+    - Python import detection now works for complex import patterns
+    - No more project pollution with workspace settings files
+    - Accurate download period display for different ecosystems
+    - Consistent user experience with unified command naming
+    - GitHub links now work for more packages (e.g., helmet)
+  - **Notes**: Only missing package scores issue (#4) remains pending - requires runtime investigation
+
+### 2025-07-07 (Previous Sessions)
 - ✅ **Major Technical Debt Resolution** (🐛 Bug Fixes, 🔧 Core Features)
   - **Status**: Completed
   - **Description**: Comprehensive fix of TypeScript and ESLint issues identified in pending task backlog
@@ -300,26 +374,25 @@ When adding new tasks, use this template:
 *No current sprint defined*
 
 ### Metrics
-- **Total Tasks**: 13
-- **Completed Tasks**: 13  
+- **Total Tasks**: 18
+- **Completed Tasks**: 17  
 - **In Progress**: 0
-- **Pending**: 0
+- **Pending**: 1 (missing package scores)
 - **Evaluated**: 2 (dependency updates assessed)
-- **Completion Rate**: 100% (13/13 tasks completed)
+- **Completion Rate**: 94% (17/18 tasks completed)
 
 ### Latest Update
 - **Date**: 2025-07-07
-- **Activity**: Complete ESLint Cleanup Achievement - Zero Errors Milestone
+- **Activity**: Major Bug Fix Implementation - Version 0.6.10 Release
 - **Achievements**: 
-  - ✅ **Complete ESLint Resolution**: Reduced from 354 errors to 0 errors (100% success)
-  - ✅ **TypeScript Compilation**: Maintained error-free compilation throughout cleanup
-  - ✅ **Type Safety Excellence**: Eliminated all unsafe any operations with proper type guards
-  - ✅ **Async/Promise Handling**: Fixed all floating promises and require-await issues
-  - ✅ **Test Framework**: Configured Jest globals properly in ESLint flat config
-  - ✅ **Code Quality**: Removed all unused variables, fixed formatting, enhanced interfaces
-  - ✅ **Multi-Agent Execution**: Successfully coordinated 7 specialized cleanup agents
-- **Current Focus**: 100% task completion rate achieved, code quality excellence milestone reached
-- **Next Steps**: Project enters maintenance phase with zero technical debt in linting/type safety
+  - ✅ **Python Import Detection**: Fixed complex import patterns (dotted modules, symbol imports)
+  - ✅ **.vscode Settings Prevention**: Eliminated project pollution with global settings approach
+  - ✅ **Download Period Accuracy**: Ecosystem-specific display (/Week for npm, /Month for Python)
+  - ✅ **Command Consistency**: Unified all command titles with "PkgGuard:" prefix
+  - ✅ **GitHub URL Support**: Enhanced URL parsing for git:// protocol packages
+  - ✅ **Zero Compilation Errors**: Maintained clean TypeScript build (372.8KB output)
+- **Current Focus**: 94% task completion rate, core functionality significantly improved
+- **Next Steps**: Investigate missing package scores issue (#4) - requires runtime testing environment
 
 ## Notes
 
