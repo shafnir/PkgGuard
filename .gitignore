@@ -62,3 +62,9 @@ docs/TERMINAL_INTEGRATION.md
 
 # Test files
 test-*
+
+# Claude internal files
+.bash_history
+.claude.json
+.claude/
+.npm/
