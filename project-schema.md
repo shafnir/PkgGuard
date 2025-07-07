@@ -380,12 +380,33 @@ src/
         └── terminal-integration.test.ts
 ```
 
+## ES Module Architecture (2025-07-07)
+
+### Migration to ES Modules Complete
+PkgGuard has been successfully migrated from CommonJS to ES modules for better performance and modern standards compliance:
+
+**Configuration Changes**:
+- Added `"type": "module"` to package.json
+- Updated TypeScript compilation target to ES2022 modules
+- Configured esbuild to output ESM format
+- Created Jest configuration with ESM support
+
+**Code Migration**:
+- Converted 27 require() calls to ES module imports
+- Updated all Node.js built-in imports to use `node:` prefix
+- All scoring module functions now use static imports
+
+**Benefits**:
+- Tree-shaking support for better bundle optimization
+- Modern JavaScript module standards
+- Better compatibility with latest tooling
+- Resolved ESLint MODULE_TYPELESS_PACKAGE_JSON warning
+
 ## Current Technical Debt & Future Work
 
 ### Immediate Priorities
-- **TypeScript Strict Errors**: 628+ remaining strict null checking issues (non-breaking)
-- **ESLint Configuration**: MODULE_TYPELESS_PACKAGE_JSON warning, linting errors in adapters
-- **Code Quality**: Unused variables, unsafe assignments, console usage
+- **TypeScript Strict Errors**: 628+ remaining strict null checking issues (non-breaking, pre-existing)
+- **Code Quality**: Unused variables, unsafe assignments (pre-existing issues)
 
 ### Blocked Upgrades (Monitoring)
 - **Jest 30**: Waiting for ts-jest v30.x compatibility release
