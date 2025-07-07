@@ -56,7 +56,11 @@ describe("Terminal Integration", () => {
       ];
 
       testCases.forEach(({ input, expected }) => {
-        const result = (monitor as any).cleanPackageName(input);
+        const result = (
+          monitor as unknown as {
+            cleanPackageName: (input: string) => string | null;
+          }
+        ).cleanPackageName(input);
         expect(result).toBe(expected);
       });
     });
@@ -71,7 +75,11 @@ describe("Terminal Integration", () => {
       ];
 
       invalidSpecs.forEach((spec) => {
-        const result = (monitor as any).cleanPackageName(spec);
+        const result = (
+          monitor as unknown as {
+            cleanPackageName: (input: string) => string | null;
+          }
+        ).cleanPackageName(spec);
         expect(result).toBe(null);
       });
     });

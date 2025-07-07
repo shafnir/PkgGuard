@@ -32,6 +32,7 @@ import {
   Detector,
   RegistryAdapter,
   Scorer,
+  RegistryInfo,
 } from "./types";
 import { JavaScriptDetector } from "./detectors/javascript";
 import { NpmAdapter } from "./adapters/npm";
@@ -42,6 +43,65 @@ import { SimpleTerminalManager } from "./terminal/simple-terminal";
 
 interface TopPyPIResponse {
   rows: { project: string; download_count: number }[];
+}
+
+/**
+ * Type guard to check if an object is a valid TopPyPIResponse
+ */
+function isTopPyPIResponse(obj: unknown): obj is TopPyPIResponse {
+  if (typeof obj !== "object" || obj === null) {
+    return false;
+  }
+  const candidate = obj as Record<string, unknown>;
+
+  if (!("rows" in candidate) || !Array.isArray(candidate.rows)) {
+    return false;
+  }
+  return candidate.rows.every((row: unknown) => {
+    if (typeof row !== "object" || row === null) {
+      return false;
+    }
+    const rowCandidate = row as Record<string, unknown>;
+    return (
+      typeof rowCandidate.project === "string" &&
+      typeof rowCandidate.download_count === "number"
+    );
+  });
+}
+
+/**
+ * Type guard to check if an object is a valid RegistryInfo
+ */
+function isRegistryInfo(obj: unknown): obj is RegistryInfo {
+  if (typeof obj !== "object" || obj === null) {
+    return false;
+  }
+  const candidate = obj as Record<string, unknown>;
+  return (
+    "exists" in candidate &&
+    "downloads" in candidate &&
+    "latestRelease" in candidate &&
+    "maintainerCount" in candidate &&
+    "highVulnCount" in candidate &&
+    typeof candidate.exists === "boolean" &&
+    typeof candidate.downloads === "number" &&
+    typeof candidate.latestRelease === "number" &&
+    typeof candidate.maintainerCount === "number" &&
+    typeof candidate.highVulnCount === "number"
+  );
+}
+
+/**
+ * Creates a default RegistryInfo object for cases where metadata cannot be retrieved
+ */
+function createDefaultRegistryInfo(): RegistryInfo {
+  return {
+    exists: false,
+    downloads: 0,
+    latestRelease: 0,
+    maintainerCount: 0,
+    highVulnCount: 0,
+  };
 }
 
 let decorators: TrustDecorators | undefined;
@@ -80,10 +140,9 @@ export function activate(context: vscode.ExtensionContext) {
   // Fetch and cache the top PyPI packages list
   fetch("https://hugovk.github.io/top-pypi-packages/top-pypi-packages.min.json")
     .then((res) => res.json())
-    .then((data) => {
-      const typedData = data as TopPyPIResponse;
-      if (Array.isArray(typedData.rows)) {
-        ScoringEngine.setTopPackages(typedData.rows);
+    .then((data: unknown) => {
+      if (isTopPyPIResponse(data)) {
+        ScoringEngine.setTopPackages(data.rows);
       }
     })
     .catch(() => {
@@ -631,19 +690,16 @@ async function validateAndDecorate(doc: vscode.TextDocument) {
     } else {
       // Not cached or expired, fetch meta and score async
       const asyncTask = (async () => {
-        let meta;
+        let meta: RegistryInfo;
         try {
-          meta = (await retryWithBackoff(() =>
-            adapter.meta(pkg.name),
-          )) as import("./types").RegistryInfo;
+          const rawMeta = await retryWithBackoff(() => adapter.meta(pkg.name));
+          if (isRegistryInfo(rawMeta)) {
+            meta = rawMeta;
+          } else {
+            meta = createDefaultRegistryInfo();
+          }
         } catch {
-          meta = {
-            exists: false,
-            downloads: 0,
-            latestRelease: 0,
-            maintainerCount: 0,
-            highVulnCount: 0,
-          };
+          meta = createDefaultRegistryInfo();
         }
         // Ensure registryUrl is always set
         if (!meta.registryUrl) {

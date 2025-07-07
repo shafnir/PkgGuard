@@ -6,12 +6,7 @@
  * @copilot.avoid any=true
  */
 
-import {
-  RegistryInfo,
-  TrustScore,
-  Scorer,
-  CacheData,
-} from "../types";
+import { RegistryInfo, TrustScore, Scorer, CacheData } from "../types";
 import { fetchGitHubStats } from "../adapters/github";
 import * as vscode from "vscode";
 import * as path from "node:path";
@@ -250,7 +245,6 @@ const PYTHON_STDLIB = new Set([
 const CACHE_FILE_NAME = ".pkgguard-cache.json";
 let cacheFilePath: string | null = null;
 
-
 let cacheData: CacheData = {};
 
 // Global storage for when no workspace is available
@@ -333,13 +327,13 @@ function migrateWorkspaceDataToGlobal(): void {
       try {
         const workspaceCacheData: CacheData = JSON.parse(
           fs.readFileSync(workspaceCacheFile, "utf-8"),
-        );
+        ) as CacheData;
 
         if (fs.existsSync(globalCacheFile)) {
           // Merge with existing global cache
           const globalCacheData: CacheData = JSON.parse(
             fs.readFileSync(globalCacheFile, "utf-8"),
-          );
+          ) as CacheData;
 
           // Merge cache data by language and package
           for (const language in workspaceCacheData) {
@@ -349,10 +343,11 @@ function migrateWorkspaceDataToGlobal(): void {
               const workspaceEntry = workspaceCacheData[language][packageName];
               const globalEntry = globalCacheData[language][packageName];
 
-              if (workspaceEntry && (
-                !globalEntry ||
-                workspaceEntry.timestamp > globalEntry.timestamp
-              )) {
+              if (
+                workspaceEntry &&
+                (!globalEntry ||
+                  workspaceEntry.timestamp > globalEntry.timestamp)
+              ) {
                 globalCacheData[language][packageName] = workspaceEntry;
               }
             }
@@ -792,8 +787,9 @@ export class ScoringEngine implements Scorer {
     if (!a || !b) return Math.max(a?.length ?? 0, b?.length ?? 0);
     const aLen = a.length;
     const bLen = b.length;
-    const matrix = Array.from({ length: aLen + 1 }, () =>
-      new Array(bLen + 1).fill(0),
+    const matrix = Array.from(
+      { length: aLen + 1 },
+      () => new Array(bLen + 1).fill(0) as number[],
     ) as number[][];
 
     function getMatrix(matrix: number[][], i: number, j: number): number {
@@ -807,7 +803,7 @@ export class ScoringEngine implements Scorer {
     ) {
       if (matrix[i]) matrix[i][j] = value;
     }
-    
+
     for (let i = 0; i <= aLen; i++) setMatrix(matrix, i, 0, i);
     for (let j = 0; j <= bLen; j++) setMatrix(matrix, 0, j, j);
     for (let i = 1; i <= aLen; i++) {
@@ -1007,7 +1003,9 @@ export function removeCachedScore(language: string, packageName: string) {
     if (storagePath) loadCacheFile();
   }
   if (cacheData[language] && cacheData[language][packageName]) {
-    const { [packageName]: _, ...rest } = cacheData[language];
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { [packageName]: _removedEntry, ...rest } = cacheData[language];
+    // _removedEntry is intentionally unused - it's the entry being removed
     cacheData[language] = rest;
     if (cacheFilePath) {
       // Ensure .pkgguard directory exists

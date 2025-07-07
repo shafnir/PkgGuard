@@ -39,9 +39,9 @@ export class TerminalPackageMonitor {
     this.statusBarItem.show();
   }
 
-  private async onShellExecutionStart(
+  private onShellExecutionStart(
     e: vscode.TerminalShellExecutionStartEvent,
-  ): Promise<void> {
+  ): void {
     const command = e.execution.commandLine.value;
     const packages = this.extractPackageNames(command);
 
@@ -51,15 +51,13 @@ export class TerminalPackageMonitor {
     this.statusBarItem.text = `$(loading~spin) PkgGuard: Analyzing ${packages.length} package${packages.length > 1 ? "s" : ""}...`;
     this.statusBarItem.color = "#ffb400";
 
-    // Analyze packages asynchronously
-    this.analyzePackagesAsync(packages, command);
+    // Analyze packages asynchronously (intentionally not awaited to avoid blocking)
+    void this.analyzePackagesAsync(packages, command);
   }
 
-  private async onShellExecutionEnd(
-    _e: vscode.TerminalShellExecutionEndEvent,
-  ): Promise<void> {
+  private onShellExecutionEnd(): void {
     // Reset status bar after command completion
-    setTimeout(() => {
+    globalThis.setTimeout(() => {
       this.statusBarItem.text = "$(shield) PkgGuard";
       this.statusBarItem.color = undefined;
     }, 2000);
@@ -130,7 +128,7 @@ export class TerminalPackageMonitor {
     const parts = packageSpec.split("==");
     if (parts.length === 0 || !parts[0]) return null;
     let cleaned = parts[0];
-    
+
     const versionSeparators = [">=", "<=", "~="];
     for (const sep of versionSeparators) {
       const sepParts = cleaned.split(sep);
@@ -138,7 +136,7 @@ export class TerminalPackageMonitor {
         cleaned = sepParts[0];
       }
     }
-    
+
     const extraSeparators = ["[", "@"];
     for (const sep of extraSeparators) {
       const sepParts = cleaned.split(sep);
@@ -146,7 +144,7 @@ export class TerminalPackageMonitor {
         cleaned = sepParts[0];
       }
     }
-    
+
     if (!cleaned) return null;
     cleaned = cleaned.replace(/^-+/, "").trim();
 
@@ -174,8 +172,8 @@ export class TerminalPackageMonitor {
     // Analyze each package
     for (const pkg of packages) {
       try {
-        let adapter: any;
-        let scoring: any;
+        let adapter: PyPIAdapter | NpmAdapter;
+        let scoring: ScoringEngine | JavaScriptScoringEngine;
 
         if (pkg.ecosystem === "python") {
           adapter = new PyPIAdapter();
@@ -194,7 +192,7 @@ export class TerminalPackageMonitor {
           ecosystem: pkg.ecosystem,
         });
       } catch (error) {
-        console.error(`Error analyzing package ${pkg.name}:`, error);
+        globalThis.console.error(`Error analyzing package ${pkg.name}:`, error);
       }
     }
 

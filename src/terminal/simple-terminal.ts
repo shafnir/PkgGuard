@@ -9,6 +9,7 @@ import * as os from "os";
 import * as fs from "fs";
 import * as path from "path";
 import * as process from "node:process";
+import { Buffer } from "buffer";
 import { TrustScore } from "../types";
 import { PyPIAdapter } from "../adapters/pypi";
 import { NpmAdapter } from "../adapters/npm";
@@ -23,7 +24,7 @@ interface SecurityCheck {
 
 export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
   private writeEmitter = new vscode.EventEmitter<string>();
-  private closeEmitter = new vscode.EventEmitter<number | void>();
+  private closeEmitter = new vscode.EventEmitter<number | undefined>();
   private currentInput = "";
   private runningProcess: cp.ChildProcess | undefined;
 
@@ -32,7 +33,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
   private isInSecurityPrompt: boolean = false;
 
   onDidWrite: vscode.Event<string> = this.writeEmitter.event;
-  onDidClose?: vscode.Event<number | void> = this.closeEmitter.event;
+  onDidClose?: vscode.Event<number | undefined> = this.closeEmitter.event;
 
   constructor(private workspaceFolder?: vscode.WorkspaceFolder) {}
 
@@ -65,7 +66,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     this.writeEmitter.fire(fixedData);
   }
 
-  open(_initialDimensions: vscode.TerminalDimensions | undefined): void {
+  open(): void {
     this.safeWriteEmitter("🛡️ \x1b[32mPkgGuard Smart Terminal\x1b[0m\r\n");
     this.safeWriteEmitter(
       "Full terminal functionality with security for package installations.\r\n",
@@ -128,7 +129,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     return command;
   }
 
-  async handleInput(data: string): Promise<void> {
+  handleInput(data: string): void {
     // If we have a running process, pass input directly to it
     if (this.runningProcess && this.runningProcess.stdin) {
       // Special handling for different input types
@@ -160,13 +161,15 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
 
     // Handle security prompt separately
     if (this.isInSecurityPrompt && this.pendingSecurityCheck) {
-      await this.handleSecurityPromptInput(data);
+      // Use void to handle the promise without awaiting
+      void this.handleSecurityPromptInput(data);
       return;
     }
 
     if (data === "\r") {
       // Process the command
-      await this.processCommand(this.currentInput.trim());
+      // Use void to handle the promise without awaiting
+      void this.processCommand(this.currentInput.trim());
       this.currentInput = "";
     } else if (data === "\x03") {
       // Ctrl+C - clear current input or exit
@@ -255,7 +258,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     }
 
     // Check if this is a package installation command
-    if (await this.shouldCheckSecurity(command)) {
+    if (this.shouldCheckSecurity(command)) {
       const packages = this.extractPackageInfo(command);
       if (packages.length > 0) {
         const proceed = await this.performSecurityCheck(command, packages);
@@ -427,7 +430,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     });
   }
 
-  private async shouldCheckSecurity(command: string): Promise<boolean> {
+  private shouldCheckSecurity(command: string): boolean {
     const config = vscode.workspace.getConfiguration();
     const securityMode = config.get("pkgGuard.securityMode", "interactive") as
       | "interactive"
@@ -469,8 +472,8 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     // Analyze packages
     for (const pkg of packages) {
       try {
-        let adapter: any;
-        let scoring: any;
+        let adapter: PyPIAdapter | NpmAdapter;
+        let scoring: ScoringEngine | JavaScriptScoringEngine;
 
         if (pkg.ecosystem === "python") {
           adapter = new PyPIAdapter();
@@ -506,7 +509,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
         this.writeEmitter.fire(
           `${emoji} ${color}${pkg.name}\x1b[0m: Score ${score.score ?? "Ignored"}\r\n`,
         );
-      } catch (error) {
+      } catch {
         this.writeEmitter.fire(
           `❌ \x1b[31mError analyzing ${pkg.name}\x1b[0m\r\n`,
         );
@@ -604,8 +607,8 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
 
     for (const pkg of this.pendingSecurityCheck.packages) {
       try {
-        let adapter: any;
-        let scoring: any;
+        let adapter: PyPIAdapter | NpmAdapter;
+        let scoring: ScoringEngine | JavaScriptScoringEngine;
 
         if (pkg.ecosystem === "python") {
           adapter = new PyPIAdapter();
@@ -636,7 +639,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
             `   🔗 Registry: ${score.evidence.registryUrl}\r\n`,
           );
         }
-      } catch (error) {
+      } catch {
         this.writeEmitter.fire(
           `   ❌ Error getting details for ${pkg.name}\r\n`,
         );
@@ -695,14 +698,14 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
   private cleanPackageName(spec: string): string {
     let cleaned = spec;
     const separators = ["==", ">=", "<=", "[", "@"];
-    
+
     for (const sep of separators) {
       const parts = cleaned.split(sep);
       if (parts.length > 0 && parts[0]) {
         cleaned = parts[0];
       }
     }
-    
+
     return cleaned.trim();
   }
 
@@ -798,7 +801,10 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
       } else if (ecosystem === "javascript") {
         if (fileName === "package.json") {
           try {
-            const packageJson = JSON.parse(content);
+            const packageJson = JSON.parse(content) as {
+              dependencies?: Record<string, string>;
+              devDependencies?: Record<string, string>;
+            };
 
             // Parse dependencies
             if (packageJson.dependencies) {
@@ -933,7 +939,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
           this.writeEmitter.fire(
             `${emoji} ${color}${pkg.name}\\x1b[0m (${pkg.source}): ${score.score ?? "Ignored"}\\r\\n`,
           );
-        } catch (error) {
+        } catch {
           this.writeEmitter.fire(
             `❌ \\x1b[31mError analyzing ${pkg.name}\\x1b[0m\\r\\n`,
           );
@@ -981,7 +987,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
           this.writeEmitter.fire(
             `${emoji} ${color}${pkg.name}\\x1b[0m (${pkg.source}): ${score.score ?? "Ignored"}\\r\\n`,
           );
-        } catch (error) {
+        } catch {
           this.writeEmitter.fire(
             `❌ \\x1b[31mError analyzing ${pkg.name}\\x1b[0m\\r\\n`,
           );
@@ -1113,7 +1119,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     if (blockedPackages.length > 0) {
       if (safePackages.length > 0) {
         // Silently create filtered requirements file
-        await this.createFilteredRequirements(safePackages, fileName, true);
+        this.createFilteredRequirements(safePackages, fileName, true);
         targetFile = "requirements-safe.txt";
         usedFilteredFile = true;
       } else {
@@ -1151,7 +1157,9 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
       try {
         const cwd = this.workspaceFolder?.uri.fsPath || process.cwd();
         fs.unlinkSync(path.join(cwd, "requirements-safe.txt"));
-      } catch {}
+      } catch {
+        // Ignore cleanup errors
+      }
     }
   }
 
@@ -1246,8 +1254,8 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     if (securityMode === "disabled") {
       return [];
     }
-    let adapter: any;
-    let scoring: any;
+    let adapter: PyPIAdapter | NpmAdapter;
+    let scoring: ScoringEngine | JavaScriptScoringEngine;
 
     if (ecosystem === "python") {
       adapter = new PyPIAdapter();
@@ -1278,11 +1286,11 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     return results.filter((name) => name !== null) as string[];
   }
 
-  private async createFilteredRequirements(
+  private createFilteredRequirements(
     safePackages: Array<{ name: string; ecosystem: "python" | "javascript" }>,
     originalFileName: string,
     silent: boolean = false,
-  ): Promise<void> {
+  ): void {
     const cwd = this.workspaceFolder?.uri.fsPath || process.cwd();
     const originalPath = path.join(cwd, originalFileName);
     const safePath = path.join(cwd, "requirements-safe.txt");
@@ -1309,7 +1317,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
           `✅ Created requirements-safe.txt with ${safePackages.length} safe packages\r\n`,
         );
       }
-    } catch (error) {
+    } catch {
       if (!silent) {
         this.writeEmitter.fire(
           "❌ Error creating filtered requirements file\r\n",
@@ -1384,8 +1392,8 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     const reportPath = path.join(cwd, ".pkgguard-report.txt");
 
     try {
-      let adapter: any;
-      let scoring: any;
+      let adapter: PyPIAdapter | NpmAdapter;
+      let scoring: ScoringEngine | JavaScriptScoringEngine;
 
       if (ecosystem === "python") {
         adapter = new PyPIAdapter();
@@ -1431,7 +1439,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
             }
 
             report += `---\n`;
-          } catch (error) {
+          } catch {
             report += `\nPackage: ${pkgName}\n`;
             report += `Error: Could not analyze package\n`;
             report += `---\n`;
@@ -1448,7 +1456,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
       }
 
       fs.writeFileSync(reportPath, report);
-    } catch (error) {
+    } catch {
       // Silent fail for report generation
     }
   }
@@ -1539,11 +1547,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     if (blockedPackages.length > 0 && command.includes("install")) {
       if (safePackages.length > 0) {
         // Silently create filtered requirements file
-        await this.createFilteredRequirements(
-          safePackages,
-          requirementsFile,
-          true,
-        );
+        this.createFilteredRequirements(safePackages, requirementsFile, true);
         actualCommand = command.replace(
           requirementsFile,
           "requirements-safe.txt",
@@ -1622,11 +1626,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
  * Simple Terminal Manager
  */
 export class SimpleTerminalManager {
-  private constructor() {
-    // Utility class - prevent instantiation
-  }
-
-  public static createPkgGuardTerminal(
+  public createPkgGuardTerminal(
     workspaceFolder?: vscode.WorkspaceFolder,
   ): vscode.Terminal {
     const pty = new SimplePkgGuardTerminal(workspaceFolder);
@@ -1644,8 +1644,8 @@ export class SimpleTerminalManager {
       "pkgguard.createTerminal",
       () => {
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        const terminal =
-          SimpleTerminalManager.createPkgGuardTerminal(workspaceFolder);
+        const manager = new SimpleTerminalManager();
+        const terminal = manager.createPkgGuardTerminal(workspaceFolder);
         terminal.show();
 
         vscode.window

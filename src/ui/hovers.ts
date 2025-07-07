@@ -10,6 +10,45 @@ import * as vscode from "vscode";
 import { TrustScore } from "../types";
 
 /**
+ * Type guard to check if a TrustScore has maintainerCount in evidence
+ */
+function hasEvidenceMaintainerCount(score: TrustScore): score is TrustScore & {
+  evidence: TrustScore["evidence"] & { maintainerCount: number };
+} {
+  return typeof score.evidence.maintainerCount === "number";
+}
+
+/**
+ * Type guard to check if a TrustScore has registryUrl in evidence
+ */
+function hasEvidenceRegistryUrl(score: TrustScore): score is TrustScore & {
+  evidence: TrustScore["evidence"] & { registryUrl: string };
+} {
+  return typeof score.evidence.registryUrl === "string";
+}
+
+/**
+ * Type guard to check if a TrustScore has githubRepo property
+ */
+function hasGithubRepo(score: TrustScore): score is TrustScore & {
+  githubRepo: string;
+} {
+  return typeof score.githubRepo === "string";
+}
+
+/**
+ * Type guard to check if a TrustScore has maintainerCount at top level
+ */
+function hasMaintainerCount(score: TrustScore): score is TrustScore & {
+  maintainerCount: number;
+} {
+  return (
+    typeof (score as TrustScore & { maintainerCount?: number })
+      .maintainerCount === "number"
+  );
+}
+
+/**
  * Hover provider for package trust information.
  */
 export class TrustHoverProvider implements vscode.HoverProvider {
@@ -141,8 +180,13 @@ export class TrustHoverProvider implements vscode.HoverProvider {
       markdown.appendMarkdown(`- ⏰ Release date: N/A\n`);
     }
     // Maintainers: show actual count if available
-    const maintCount =
-      (score as any).evidence.maintainerCount ?? (score as any).maintainerCount;
+    let maintCount: number | undefined;
+    if (hasEvidenceMaintainerCount(score)) {
+      maintCount = score.evidence.maintainerCount;
+    } else if (hasMaintainerCount(score)) {
+      maintCount = score.maintainerCount;
+    }
+
     if (typeof maintCount === "number" && maintCount > 1) {
       markdown.appendMarkdown(`- 👥 Maintainers: ${maintCount}\n`);
     } else if (typeof maintCount === "number" && maintCount === 1) {
@@ -190,16 +234,16 @@ export class TrustHoverProvider implements vscode.HoverProvider {
     markdown.appendMarkdown("\n");
 
     // Add registry link (only if present in evidence)
-    if (score.evidence && (score.evidence as any).registryUrl) {
-      const registryUrl = (score.evidence as any).registryUrl;
+    if (hasEvidenceRegistryUrl(score)) {
+      const registryUrl = score.evidence.registryUrl;
       const isPyPI = registryUrl.includes("pypi.org");
       markdown.appendMarkdown(
         `[🔗 View on ${isPyPI ? "PyPI" : "npm"}](${registryUrl})`,
       );
     }
     // Add GitHub link (if present, on same line as registry link)
-    if ((score as any).githubRepo) {
-      markdown.appendMarkdown(` | [🐙 GitHub](${(score as any).githubRepo})\n`);
+    if (hasGithubRepo(score)) {
+      markdown.appendMarkdown(` | [🐙 GitHub](${score.githubRepo})\n`);
     }
     // Add Ignore/Unignore action (always on its own line, after links)
     if (score.level === "low" || score.level === "medium") {
