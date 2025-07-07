@@ -2,6 +2,8 @@
  * Tests for Terminal Integration functionality
  */
 
+/// <reference types="jest" />
+
 import { TerminalPackageMonitor } from "../shell-integration";
 
 describe("Terminal Integration", () => {
@@ -22,9 +24,9 @@ describe("Terminal Integration", () => {
       ];
 
       commands.forEach((command) => {
-        const packages = (monitor as any).extractPackageNames(command);
+        const packages = monitor.extractPackageNames(command);
         expect(packages.length).toBeGreaterThan(0);
-        expect(packages[0].ecosystem).toBe("python");
+        expect(packages[0]?.ecosystem).toBe("python");
       });
     });
 
@@ -38,9 +40,9 @@ describe("Terminal Integration", () => {
       ];
 
       commands.forEach((command) => {
-        const packages = (monitor as any).extractPackageNames(command);
+        const packages = monitor.extractPackageNames(command);
         expect(packages.length).toBeGreaterThan(0);
-        expect(packages[0].ecosystem).toBe("javascript");
+        expect(packages[0]?.ecosystem).toBe("javascript");
       });
     });
 
@@ -84,7 +86,7 @@ describe("Terminal Integration", () => {
       ];
 
       commands.forEach((command) => {
-        const packages = (monitor as any).extractPackageNames(command);
+        const packages = monitor.extractPackageNames(command);
         expect(packages.length).toBe(0);
       });
     });

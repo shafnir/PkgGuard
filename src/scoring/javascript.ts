@@ -1,3 +1,4 @@
+import * as process from "node:process";
 import { RegistryInfo, TrustScore, Scorer } from "../types";
 import { fetchGitHubStats } from "../adapters/github";
 import { isIgnoredPackage, getCachedScore, setCachedScore } from "./index";
@@ -72,8 +73,8 @@ export class JavaScriptScoringEngine implements Scorer {
   ): Promise<TrustScore> {
     // Build registry URL
     let registryUrl = "";
-    if ((info as any).registryUrl) {
-      registryUrl = (info as any).registryUrl;
+    if (info.registryUrl) {
+      registryUrl = info.registryUrl;
     } else if (name.match(/^[a-zA-Z0-9._-]+$/)) {
       registryUrl = `https://www.npmjs.com/package/${name}`;
     }
@@ -83,8 +84,8 @@ export class JavaScriptScoringEngine implements Scorer {
     if (ignore.ignored) {
       return {
         packageName: name,
-        score: null as any,
-        level: "ignored" as any,
+        score: null,
+        level: "ignored",
         evidence: {
           exists: true,
           downloads: 0,
@@ -104,12 +105,9 @@ export class JavaScriptScoringEngine implements Scorer {
     }
 
     // Persistent cache check (javascript)
-    const ttl =
-      typeof process !== "undefined" &&
-      process.env &&
-      process.env.PKG_GUARD_CACHE_TTL
-        ? parseInt(process.env.PKG_GUARD_CACHE_TTL)
-        : 172800;
+    const ttl = process.env.PKG_GUARD_CACHE_TTL
+      ? parseInt(process.env.PKG_GUARD_CACHE_TTL)
+      : 172800;
     const cached = getCachedScore("javascript", name, ttl);
     if (cached) return cached;
 

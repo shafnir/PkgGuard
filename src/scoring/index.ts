@@ -6,7 +6,12 @@
  * @copilot.avoid any=true
  */
 
-import { RegistryInfo, TrustScore, Scorer } from "../types";
+import {
+  RegistryInfo,
+  TrustScore,
+  Scorer,
+  CacheData,
+} from "../types";
 import { fetchGitHubStats } from "../adapters/github";
 import * as vscode from "vscode";
 import * as path from "node:path";
@@ -245,16 +250,6 @@ const PYTHON_STDLIB = new Set([
 const CACHE_FILE_NAME = ".pkgguard-cache.json";
 let cacheFilePath: string | null = null;
 
-interface CacheEntry {
-  score: TrustScore;
-  timestamp: number;
-}
-
-interface CacheData {
-  [language: string]: {
-    [packageName: string]: CacheEntry;
-  };
-}
 
 let cacheData: CacheData = {};
 
@@ -336,13 +331,13 @@ function migrateWorkspaceDataToGlobal(): void {
 
     if (fs.existsSync(workspaceCacheFile)) {
       try {
-        const workspaceCacheData = JSON.parse(
+        const workspaceCacheData: CacheData = JSON.parse(
           fs.readFileSync(workspaceCacheFile, "utf-8"),
         );
 
         if (fs.existsSync(globalCacheFile)) {
           // Merge with existing global cache
-          const globalCacheData = JSON.parse(
+          const globalCacheData: CacheData = JSON.parse(
             fs.readFileSync(globalCacheFile, "utf-8"),
           );
 
@@ -354,10 +349,10 @@ function migrateWorkspaceDataToGlobal(): void {
               const workspaceEntry = workspaceCacheData[language][packageName];
               const globalEntry = globalCacheData[language][packageName];
 
-              if (
+              if (workspaceEntry && (
                 !globalEntry ||
                 workspaceEntry.timestamp > globalEntry.timestamp
-              ) {
+              )) {
                 globalCacheData[language][packageName] = workspaceEntry;
               }
             }
@@ -800,7 +795,7 @@ export class ScoringEngine implements Scorer {
     const matrix = Array.from({ length: aLen + 1 }, () =>
       new Array(bLen + 1).fill(0),
     ) as number[][];
-    
+
     function getMatrix(matrix: number[][], i: number, j: number): number {
       return matrix[i] && matrix[i][j] !== undefined ? matrix[i][j] : Infinity;
     }
@@ -944,7 +939,9 @@ export function loadCacheFile() {
   cacheFilePath = path.join(guardDir, CACHE_FILE_NAME);
   if (fs.existsSync(cacheFilePath)) {
     try {
-      cacheData = JSON.parse(fs.readFileSync(cacheFilePath, "utf-8"));
+      cacheData = JSON.parse(
+        fs.readFileSync(cacheFilePath, "utf-8"),
+      ) as CacheData;
     } catch {
       cacheData = {};
     }
@@ -1010,7 +1007,8 @@ export function removeCachedScore(language: string, packageName: string) {
     if (storagePath) loadCacheFile();
   }
   if (cacheData[language] && cacheData[language][packageName]) {
-    delete cacheData[language][packageName];
+    const { [packageName]: _, ...rest } = cacheData[language];
+    cacheData[language] = rest;
     if (cacheFilePath) {
       // Ensure .pkgguard directory exists
       const dir = path.dirname(cacheFilePath);

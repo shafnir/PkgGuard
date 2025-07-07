@@ -113,7 +113,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
       // Check for exact matches first
       const lowerCommand = command.toLowerCase();
       if (translations[lowerCommand]) {
-        return translations[lowerCommand]!;
+        return translations[lowerCommand];
       }
 
       // Check for command with arguments
@@ -693,13 +693,17 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
   }
 
   private cleanPackageName(spec: string): string {
-    return spec
-      .split("==")[0]!
-      .split(">=")[0]!
-      .split("<=")[0]!
-      .split("[")[0]!
-      .split("@")[0]!
-      .trim();
+    let cleaned = spec;
+    const separators = ["==", ">=", "<=", "[", "@"];
+    
+    for (const sep of separators) {
+      const parts = cleaned.split(sep);
+      if (parts.length > 0 && parts[0]) {
+        cleaned = parts[0];
+      }
+    }
+    
+    return cleaned.trim();
   }
 
   private detectManifestFiles(): Array<{
