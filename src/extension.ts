@@ -7,9 +7,21 @@
  */
 
 import * as vscode from "vscode";
+import * as path from "node:path";
+import * as fs from "node:fs";
 import { PythonDetector } from "./detectors/python";
 import { PyPIAdapter } from "./adapters/pypi";
-import { ScoringEngine, loadIgnoreFile } from "./scoring";
+import { 
+  ScoringEngine, 
+  loadIgnoreFile,
+  setGlobalStoragePath,
+  migrateWorkspaceDataToGlobal,
+  loadCacheFile,
+  clearCacheFile,
+  setCachedScore,
+  removeCachedScore,
+  getCachedScore
+} from "./scoring";
 import { TrustDecorators } from "./ui/decorators";
 import { TrustHoverProvider } from "./ui/hovers";
 import { PackageName, TrustScore } from "./types";
@@ -39,10 +51,9 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Initialize global storage
   const globalStoragePath = context.globalStorageUri.fsPath;
-  require("./scoring").setGlobalStoragePath(globalStoragePath);
+  setGlobalStoragePath(globalStoragePath);
 
   // Migrate existing workspace data to global storage (one-time migration)
-  const { migrateWorkspaceDataToGlobal } = require("./scoring");
   try {
     migrateWorkspaceDataToGlobal();
   } catch (error) {
@@ -66,14 +77,14 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Load ignore file and cache from global storage
   loadIgnoreFile();
-  require("./scoring").loadCacheFile();
+  loadCacheFile();
 
   // Handle workspace changes - reload from global storage and re-validate
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
       // Reload ignore file and cache from global storage
       loadIgnoreFile();
-      require("./scoring").loadCacheFile();
+      loadCacheFile();
 
       // Re-validate all open editors
       vscode.window.visibleTextEditors.forEach((e) => {
@@ -161,22 +172,18 @@ export function activate(context: vscode.ExtensionContext) {
         const note = await vscode.window.showInputBox({
           prompt: "Optional: Add a note for why you are ignoring this package.",
         });
-        const pathLib = require("path");
-        const fsLib = require("fs");
-
         // Always use global storage
         const storagePath = context.globalStorageUri.fsPath;
-        const guardDir = pathLib.join(storagePath, ".pkgguard");
-        if (!fsLib.existsSync(guardDir))
-          fsLib.mkdirSync(guardDir, { recursive: true });
-        const ignorePath = pathLib.join(guardDir, ".pkgguard-ignore");
+        const guardDir = path.join(storagePath, ".pkgguard");
+        if (!fs.existsSync(guardDir))
+          fs.mkdirSync(guardDir, { recursive: true });
+        const ignorePath = path.join(guardDir, ".pkgguard-ignore");
         let line = packageName;
         if (note && note.trim()) line += " # " + note.trim();
-        fsLib.appendFileSync(ignorePath, `\n${line}`);
+        fs.appendFileSync(ignorePath, `\n${line}`);
         loadIgnoreFile();
 
         // Update cache to store 'ignored' TrustScore
-        const { setCachedScore } = require("./scoring");
         setCachedScore("python", packageName, {
           packageName,
           score: null,
@@ -240,26 +247,22 @@ export function activate(context: vscode.ExtensionContext) {
           return;
         }
         const packageName = packageNameArg;
-        const pathLib = require("path");
-        const fsLib = require("fs");
-
         // Always use global storage
         const storagePath = context.globalStorageUri.fsPath;
-        const guardDir = pathLib.join(storagePath, ".pkgguard");
-        if (!fsLib.existsSync(guardDir))
-          fsLib.mkdirSync(guardDir, { recursive: true });
-        const ignorePath = pathLib.join(guardDir, ".pkgguard-ignore");
+        const guardDir = path.join(storagePath, ".pkgguard");
+        if (!fs.existsSync(guardDir))
+          fs.mkdirSync(guardDir, { recursive: true });
+        const ignorePath = path.join(guardDir, ".pkgguard-ignore");
 
-        if (fsLib.existsSync(ignorePath)) {
-          const lines = fsLib.readFileSync(ignorePath, "utf-8").split(/\r?\n/);
+        if (fs.existsSync(ignorePath)) {
+          const lines = fs.readFileSync(ignorePath, "utf-8").split(/\r?\n/);
           const filtered = lines.filter(
             (line: string) => !line.trim().startsWith(packageName),
           );
-          fsLib.writeFileSync(ignorePath, filtered.join("\n"));
+          fs.writeFileSync(ignorePath, filtered.join("\n"));
           loadIgnoreFile();
 
           // Remove cache entry for this package
-          const { removeCachedScore } = require("./scoring");
           removeCachedScore("python", packageName);
           removeCachedScore("javascript", packageName);
 
@@ -284,8 +287,8 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("pkg-guard.clearCache", async () => {
       // Always use global storage
-      require("./scoring").clearCacheFile();
-      require("./scoring").loadCacheFile();
+      clearCacheFile();
+      loadCacheFile();
 
       // Refresh all open editors
       vscode.window.visibleTextEditors.forEach((e) => {
@@ -303,18 +306,15 @@ export function activate(context: vscode.ExtensionContext) {
   // Register open cache file command
   context.subscriptions.push(
     vscode.commands.registerCommand("pkg-guard.openCacheFile", async () => {
-      const pathLib = require("path");
-      const fsLib = require("fs");
-
       // Always use global storage
       const globalStoragePath = context.globalStorageUri.fsPath;
-      const cacheFilePath = pathLib.join(
+      const cacheFilePath = path.join(
         globalStoragePath,
         ".pkgguard",
         ".pkgguard-cache.json",
       );
 
-      if (fsLib.existsSync(cacheFilePath)) {
+      if (fs.existsSync(cacheFilePath)) {
         const doc = await vscode.workspace.openTextDocument(cacheFilePath);
         await vscode.window.showTextDocument(doc, { preview: false });
       } else {
@@ -555,7 +555,7 @@ async function runWithConcurrency<T>(
 async function validateAndDecorate(doc: vscode.TextDocument) {
   if (!extensionEnabled) return;
   // Always load cache from global storage before scoring
-  require("./scoring").loadCacheFile();
+  loadCacheFile();
   const editor = vscode.window.visibleTextEditors.find(
     (e) => e.document === doc,
   );
@@ -628,7 +628,6 @@ async function validateAndDecorate(doc: vscode.TextDocument) {
   }
   // For each package, check cache and update UI immediately if cached
   const pendingAsync: Array<Promise<void>> = [];
-  const { getCachedScore } = require("./scoring");
   const ttl = 172800; // 48h, or get from config if needed
   for (const pkg of packages) {
     let range: vscode.Range;

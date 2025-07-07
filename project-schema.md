@@ -169,12 +169,15 @@ PkgGuard is a VS Code extension that provides real-time security analysis for Py
 - `poetry add`, `pipenv install`
 
 #### Simple Terminal (`src/terminal/simple-terminal.ts`)
-**Purpose**: Create secured terminals with package validation
+**Purpose**: Create secured terminals with package validation and manifest scanning
 **Security Modes**:
 - Interactive: Ask for approval
 - Monitor: Show warnings
 - Block: Prevent installation
 - Disabled: No checks
+**Enhanced Features**:
+- Manifest file scanning functionality for comprehensive package analysis
+- Real-time security validation during terminal operations
 
 ## Data Flow
 
@@ -266,17 +269,20 @@ another_package # reason for ignoring
 ## External Dependencies
 
 ### Runtime Dependencies
-- `node-fetch`: HTTP requests to registries
-- `node-pty`: Terminal integration
-- `sqlite3`: Local storage (if used)
-- `ws`: WebSocket support
+- `node-fetch`: HTTP requests to registries (^3.3.2)
+- `node-pty`: Terminal integration (^1.0.0)
+- `sqlite3`: Local storage (^5.1.7)
+- `ws`: WebSocket support (^8.18.3 - security patches)
 
 ### Development Dependencies
-- `typescript`: Language and compiler
-- `eslint`: Code linting
-- `jest`: Unit testing
-- `nock`: HTTP mocking for tests
-- `esbuild`: Bundling for distribution
+- `typescript`: Language and compiler (^5.8.3 - latest stable)
+- `eslint`: Code linting (^9.0.0 - modern flat config)
+- `@typescript-eslint/*`: TypeScript ESLint integration (^8.35.1)
+- `jest`: Unit testing (^29.7.0)
+- `ts-jest`: TypeScript Jest integration (^29.4.0)
+- `nock`: HTTP mocking for tests (^13.5.4)
+- `esbuild`: Bundling for distribution (0.25.5 - exact version, CORS fix)
+- `prettier`: Code formatting (^3.2.5)
 
 ## Security Considerations
 
@@ -327,16 +333,25 @@ another_package # reason for ignoring
 ## Testing Strategy
 
 ### Unit Tests
-- Mock external APIs with `nock`
+- Mock external APIs with `nock` (^13.5.4)
 - Test detection algorithms
 - Validate scoring calculations
 - Test error handling scenarios
+- Jest-based with TypeScript integration (ts-jest ^29.4.0)
 
 ### Integration Tests
 - End-to-end workflow testing
-- Terminal integration testing
+- Terminal integration testing with manifest scanning
 - Configuration management testing
 - Cache system validation
+- Modern ESLint rules for type safety
+
+### Code Quality
+- ESLint 9.0 with flat configuration (eslint.config.js)
+- TypeScript 5.8.3 strict type checking (628+ strict null errors pending)
+- Prettier code formatting (applied 3,375+ fixes)
+- Security-focused linting rules
+- **Current Issues**: MODULE_TYPELESS_PACKAGE_JSON warning, type safety errors in terminal files
 
 ## File Structure
 
@@ -365,15 +380,48 @@ src/
         └── terminal-integration.test.ts
 ```
 
-## Future Architecture Considerations
+## ES Module Architecture (2025-07-07)
 
-### Scalability
+### Migration to ES Modules Complete
+PkgGuard has been successfully migrated from CommonJS to ES modules for better performance and modern standards compliance:
+
+**Configuration Changes**:
+- Added `"type": "module"` to package.json
+- Updated TypeScript compilation target to ES2022 modules
+- Configured esbuild to output ESM format
+- Created Jest configuration with ESM support
+
+**Code Migration**:
+- Converted 27 require() calls to ES module imports
+- Updated all Node.js built-in imports to use `node:` prefix
+- All scoring module functions now use static imports
+
+**Benefits**:
+- Tree-shaking support for better bundle optimization
+- Modern JavaScript module standards
+- Better compatibility with latest tooling
+- Resolved ESLint MODULE_TYPELESS_PACKAGE_JSON warning
+
+## Current Technical Debt & Future Work
+
+### Immediate Priorities
+- **TypeScript Strict Errors**: 628+ remaining strict null checking issues (non-breaking, pre-existing)
+- **Code Quality**: Unused variables, unsafe assignments (pre-existing issues)
+
+### Blocked Upgrades (Monitoring)
+- **Jest 30**: Waiting for ts-jest v30.x compatibility release
+- **vscode-test**: 6 remaining vulnerabilities, waiting for compatible version
+- **node-pty beta**: Optional upgrade deferred (current version stable)
+
+### Future Architecture Considerations
+
+#### Scalability
 - Plugin architecture for additional languages
 - Configurable registry endpoints
 - Enhanced caching strategies
 - Distributed scoring systems
 
-### Extensibility
+#### Extensibility
 - Custom scoring algorithms
 - Additional security checks
 - Integration with other security tools
@@ -382,5 +430,5 @@ src/
 ---
 
 **Last Updated**: 2025-07-06
-**Version**: 0.6.1
-**Architecture Review**: Complete
+**Version**: 0.6.4
+**Architecture Review**: Complete with Modern Toolchain
