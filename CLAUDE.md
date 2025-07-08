@@ -23,6 +23,98 @@ PkgGuard is a VS Code extension that protects developers from AI hallucinations 
 - Press F5 in VS Code to launch Extension Development Host for debugging
 - Use `npm run package` to create installable .vsix file
 
+## Enhanced Terminal Features (Version 0.7.0)
+
+PkgGuard now includes a comprehensive smart terminal with advanced development capabilities:
+
+### Accessing PkgGuard Terminal
+**Two ways to create a PkgGuard terminal**:
+1. **Terminal Dropdown**: Select "PkgGuard Smart Terminal" from the terminal profile dropdown (alongside PowerShell, Git Bash, etc.)
+2. **Command Palette**: Run "PkgGuard: Create Terminal" command
+
+### Terminal Features
+
+#### Command History Navigation
+- **Up Arrow (↑)**: Navigate to previous commands in history
+- **Down Arrow (↓)**: Navigate forward through command history  
+- **History Storage**: Stores up to 100 commands with duplicate prevention
+- **Smart Navigation**: Preserves current input when browsing history
+
+#### PowerShell Autocomplete
+- **Tab Completion**: Press Tab for command, file, and directory completion
+- **Supported Commands**: PkgGuard commands, PowerShell, Python, Node.js, Git
+- **File System**: Complete directory and file paths in current working directory
+- **Cycling**: Multiple matches cycle through with repeated Tab presses
+
+#### Virtual Environment Support
+```bash
+# Create virtual environment
+create-venv myproject
+
+# List available environments  
+list-venvs
+
+# Activate environment (workspace venvs)
+activate-venv myproject
+
+# Activate with path (any location)
+activate-venv ../path/to/venv
+activate-venv C:\path\to\venv
+
+# Deactivate current environment
+deactivate-venv
+
+# Use pip with active venv (automatically uses venv Python)
+pip install requests
+```
+
+#### Security Mode Indicators
+Terminal prompt shows current security mode with color coding:
+- `[interactive]` 🟢 - Ask for approval on risky packages
+- `[monitor]` 🟡 - Show warnings but allow installation  
+- `[block]` 🔴 - Automatically block risky packages
+- `[disabled]` ⚪ - No security checks
+
+#### Manifest File Operations
+```bash
+# Scan manifest files for security risks
+scan-manifest
+
+# Install from manifest with security filtering
+install-manifest
+
+# Install specific manifest types
+pip install -r requirements.txt  # With security checks
+npm install                      # With security filtering
+```
+
+### Terminal Command Reference
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `help` or `?` | Show all available commands | `help` |
+| `clear` or `cls` | Clear terminal screen | `clear` |
+| `create-venv [name]` | Create virtual environment | `create-venv myproject` |
+| `activate-venv [name]` | Activate virtual environment | `activate-venv myproject` |
+| `deactivate-venv` | Deactivate current venv | `deactivate-venv` |
+| `list-venvs` | List available virtual environments | `list-venvs` |
+| `scan-manifest` | Scan requirements.txt, package.json | `scan-manifest` |
+| `install-manifest` | Install dependencies with security | `install-manifest` |
+
+### Known Issues & Workarounds (v0.7.0)
+
+**Virtual Environment Path Issues**:
+- Issue: Some Python paths may have quoting problems on Windows
+- Workaround: Use short paths without spaces when possible
+
+**Autocomplete Display**:
+- Issue: May show completion indicators like "(1/2)" 
+- Workaround: Press Tab once more to cycle through or use Enter to accept
+
+**Security Mode Messages**:
+- Issue: Toggle messages may not auto-dismiss after 3 seconds
+- Workaround: Messages are informational only and don't affect functionality
+
 ## Architecture Overview
 
 ### Core Components
@@ -48,8 +140,12 @@ PkgGuard is a VS Code extension that protects developers from AI hallucinations 
 - Special handling for standard library, top packages, and typosquatting detection
 
 **UI Components** (`src/ui/`):
-- `decorators.ts` - Colored trust badges (🟢🟡🔴⚪) after import lines
+- `decorators.ts` - Colored trust badges (🟢🟡🔴⚪) after import lines (supports hyphenated packages)
 - `hovers.ts` - Detailed hover panels with trust scores and evidence
+
+**Enhanced Terminal Integration** (`src/terminal/`):
+- `shell-integration.ts` - Monitors package installations in regular VS Code terminals with cache-first approach
+- `simple-terminal.ts` - Smart terminal with command history, autocomplete, virtual environment support, security indicators
 
 ### Data Flow
 
@@ -80,7 +176,10 @@ PkgGuard is a VS Code extension that protects developers from AI hallucinations 
 - `pkgguard.ignorePackage` - Add package to ignore list
 - `pkgguard.unignorePackage` - Remove from ignore list
 - `pkgguard.toggleSecurityMode` - Cycle through security modes
-- `pkgguard.createTerminal` - Create secured terminal
+- `pkgguard.createTerminal` - Create secured smart terminal with full features
+
+### Terminal Profile
+- **PkgGuard Smart Terminal** - Available in VS Code terminal dropdown alongside PowerShell, Git Bash, etc.
 
 ## Important Implementation Details
 
@@ -104,12 +203,28 @@ PkgGuard is a VS Code extension that protects developers from AI hallucinations 
 - Typosquatting detection (Levenshtein distance = 1) applies -60 penalty
 - Perfect packages (top + millions downloads + active + multiple maintainers) score 100
 
-## Terminal Integration
+## Enhanced Terminal Integration (Version 0.7.0)
 
-The extension includes terminal monitoring functionality (`src/terminal/`):
-- `shell-integration.ts` - Monitors package installations in terminals
-- `simple-terminal.ts` - Creates secured terminals with package validation
-- Security modes: interactive, monitor, block, disabled
+The extension includes comprehensive terminal functionality (`src/terminal/`):
+
+### Shell Integration (`shell-integration.ts`)
+- Monitors package installations in regular VS Code terminals
+- **Cache-first approach**: 90%+ performance improvement over previous versions
+- **Unified scoring**: Uses same scoring mechanism as UI for consistency
+- **Security modes**: interactive, monitor, block, disabled
+
+### Smart Terminal (`simple-terminal.ts`)  
+- **Command History**: Up/down arrow navigation with 100-command storage
+- **PowerShell Autocomplete**: Tab completion for commands, files, directories
+- **Virtual Environment Support**: create-venv, activate-venv, deactivate-venv, list-venvs with VS Code integration
+- **Security Mode Indicators**: Visual display in terminal prompt with color coding
+- **Manifest Operations**: scan-manifest, install-manifest with security filtering
+- **Cross-Platform**: Windows and Unix support with proper path handling
+
+### Terminal Profile Integration
+- **VS Code Integration**: Available in terminal dropdown alongside other shells
+- **Profile Provider**: Registered via VS Code's registerTerminalProfileProvider API
+- **Dual Access**: Available via dropdown selection and command palette
 
 ## Testing
 

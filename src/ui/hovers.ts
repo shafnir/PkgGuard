@@ -83,7 +83,10 @@ export class TrustHoverProvider implements vscode.HoverProvider {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _token: vscode.CancellationToken,
   ): vscode.ProviderResult<vscode.Hover> {
-    const wordRange = document.getWordRangeAtPosition(position);
+    const wordRange = document.getWordRangeAtPosition(
+      position,
+      /[a-zA-Z0-9@/_.-]+/,
+    );
     if (!wordRange) {
       return null;
     }

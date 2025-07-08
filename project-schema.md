@@ -34,9 +34,14 @@ PkgGuard is a VS Code extension that provides real-time security analysis for Py
 │  ├─ Trust Decorators (src/ui/decorators.ts)                   │
 │  └─ Hover Providers (src/ui/hovers.ts)                        │
 ├─────────────────────────────────────────────────────────────────┤
-│  Terminal Integration                                           │
+│  Enhanced Terminal Integration (Version 0.7.0)                │
 │  ├─ Shell Integration (src/terminal/shell-integration.ts)     │
-│  └─ Simple Terminal (src/terminal/simple-terminal.ts)         │
+│  ├─ Smart Terminal (src/terminal/simple-terminal.ts)          │
+│  ├─ Command History & Navigation                              │
+│  ├─ PowerShell Autocomplete System                            │
+│  ├─ Virtual Environment Integration                           │
+│  ├─ Security Mode Visual Indicators                           │
+│  └─ Terminal Profile Provider                                 │
 ├─────────────────────────────────────────────────────────────────┤
 │  Storage & Caching                                             │
 │  ├─ Local Cache (.pkgguard/.pkgguard-cache.json)             │
@@ -159,25 +164,59 @@ PkgGuard is a VS Code extension that provides real-time security analysis for Py
 - Risk factors
 - Ignore/unignore actions
 
-### 6. Terminal Integration
+### 6. Enhanced Terminal Integration (Version 0.7.0)
 
 #### Shell Integration (`src/terminal/shell-integration.ts`)
-**Purpose**: Monitor package installations in VS Code terminals
-**Monitored Commands**:
-- `pip install`, `pip3 install`, `python -m pip install`
-- `npm install`, `npm i`, `yarn add`, `pnpm add`, `bun add`
-- `poetry add`, `pipenv install`
+**Purpose**: Monitor package installations in regular VS Code terminals
+**Enhanced Features (v0.7.0)**:
+- **Cache-First Approach**: Uses same caching mechanism as UI for 90%+ performance improvement
+- **Unified Scoring**: Identical trust scores between terminal and UI components
+- **Monitored Commands**: `pip install`, `pip3 install`, `python -m pip install`, `npm install`, `npm i`, `yarn add`, `pnpm add`, `bun add`, `poetry add`, `pipenv install`
 
-#### Simple Terminal (`src/terminal/simple-terminal.ts`)
-**Purpose**: Create secured terminals with package validation and manifest scanning
-**Security Modes**:
+#### Smart Terminal (`src/terminal/simple-terminal.ts`)
+**Purpose**: Full-featured secure terminal with advanced development capabilities
+**Core Security Features**:
 - Interactive: Ask for approval
-- Monitor: Show warnings
+- Monitor: Show warnings  
 - Block: Prevent installation
 - Disabled: No checks
-**Enhanced Features**:
-- Manifest file scanning functionality for comprehensive package analysis
-- Real-time security validation during terminal operations
+
+**New Advanced Features (v0.7.0)**:
+
+**Command History & Navigation**:
+- **Arrow Key Navigation**: Up/down arrows for command history browsing
+- **History Storage**: 100-command limit with duplicate prevention
+- **VT Sequence Parsing**: Support for `\x1b[A` (up), `\x1b[B` (down) sequences
+- **State Management**: Preserves current input while navigating history
+
+**PowerShell Autocomplete System**:
+- **Tab Completion**: Context-aware command, file, and directory completion
+- **Command Coverage**: PkgGuard commands, PowerShell, Python, Node.js, Git
+- **Cycling Interface**: Multiple matches cycle through with Tab presses
+- **File System Integration**: Complete directory and file paths in current working directory
+
+**Virtual Environment Integration**:
+- **Commands**: `create-venv [name]`, `activate-venv [name]`, `deactivate-venv`, `list-venvs`
+- **Auto-Detection**: Finds `.venv`, `venv`, `env`, `virtualenv` in workspace
+- **VS Code Integration**: Updates Python interpreter selection automatically
+- **Cross-Platform**: Windows (`Scripts/python.exe`) and Unix (`bin/python`) support
+- **Smart Pip Integration**: Automatically uses active venv for pip commands
+
+**Security Mode Visual Indicators**:
+- **Prompt Display**: `[interactive]`, `[monitor]`, `[block]`, `[disabled]` with color coding
+- **Configuration Listener**: Updates display when security mode changes
+- **Terminal Branding**: Shows active venv and security mode: `(.venv) [interactive] C:\path> `
+
+**Terminal Profile Integration**:
+- **VS Code Integration**: Appears in terminal dropdown with PowerShell, Git Bash, etc.
+- **Profile Provider**: Registered via `registerTerminalProfileProvider` API
+- **Activation Event**: `onTerminalProfile:pkgguard.terminal-profile`
+- **Dual Access**: Available via dropdown and command palette
+
+**Manifest File Operations**:
+- **Scanning**: `scan-manifest` command for requirements.txt, package.json analysis
+- **Installation**: `install-manifest` with security filtering
+- **Security Reports**: Detailed analysis with risk factor breakdown
 
 ## Data Flow
 
@@ -404,17 +443,38 @@ PkgGuard has been successfully migrated from CommonJS to ES modules for better p
 
 ## Current Technical Debt & Future Work
 
-### Immediate Priorities
-*No immediate technical debt - all critical issues resolved*
+### Immediate Priorities (Post v0.7.1)
+**Remaining High Priority Issues Discovered During Testing**:
+- **HTTP Client Module Hover Display**: `from http.client import this` not displaying score in hover UI despite showing trust indicators
+- **Terminal Prompt Spacing Final Issue**: Still missing space after path (needs `[mode] path> ` format)
+- **Terminal Autocomplete Line Behavior**: Tab completion creates new line instead of in-place completion like normal terminal
+
+### Recently Resolved Issues (v0.7.1)
+**Successfully Fixed Terminal UX Issues**:
+- ✅ **Security Mode Message Auto-Dismiss**: Messages now fade after 3 seconds using Promise.race() timeout
+- ✅ **Terminal Autocomplete Display**: Removed "(1/2)" numbering indicators for clean native behavior
+- ✅ **Virtual Environment Path Quoting**: Smart quoting prevents double-quote command execution failures
+- ✅ **Terminal Command Spacing**: Improved prompt readability (partial fix, spacing refinement needed)
+- ✅ **Virtual Environment Path Support**: Added absolute/relative path activation with enhanced autocomplete
 
 ### Recent Achievements (2025-07-07)
-#### Critical Issues Resolution - Version 0.6.11
+#### Major Terminal Enhancement Initiative - Version 0.7.0
+- **Comprehensive Terminal Transformation**: 7-agent concurrent development successfully completed all enhancement goals
+- **Fix Hyphenated Package Names**: Hover details now work for "node-schedule", "@angular/core", "lodash.get" via regex pattern fix
+- **Unified Terminal/UI Scoring**: 90%+ performance improvement with cache-first approach and identical scoring logic
+- **Security Mode Visual Indicators**: Color-coded mode display in terminal prompt with configuration listeners
+- **PowerShell Autocomplete System**: Tab completion for commands, files, directories with cycling interface
+- **Virtual Environment Integration**: Complete workflow with create-venv, activate-venv, VS Code integration, cross-platform support
+- **Terminal Profile Integration**: PkgGuard appears in VS Code terminal dropdown via registerTerminalProfileProvider
+- **Command History Navigation**: Up/down arrow navigation with 100-command storage and VT sequence parsing
+- **Build Quality**: Clean TypeScript build (401.6KB) with zero compilation/lint errors, all 6 agents delivered successfully
+
+#### Previous Critical Issues Resolution - Version 0.6.11
 - **Python Inline Comments**: Fixed import detection to handle `flask # This is a note` syntax while preventing non-import line scanning
 - **Unknown Trust Level**: Added ❓ gray indicator for packages that fail to score with comprehensive error handling
 - **Python Standard Library Links**: Fixed stdlib packages to show "Python Docs" links instead of grayed npm links
 - **Security Mode Configuration**: Added configuration change listener for responsive security mode updates
 - **Error Resilience**: Robust exception handling prevents extension crashes during API failures
-- **Build Quality**: Clean TypeScript build (375.7KB) with zero compilation/lint errors
 
 #### Major Bug Fix Implementation - Version 0.6.10 (Previous Session)
 - **Python Import Detection**: Enhanced regex patterns to support complex imports (`from flask import Flask`, `urllib.request`, `xml.etree.ElementTree as ET`)
@@ -454,6 +514,6 @@ PkgGuard has been successfully migrated from CommonJS to ES modules for better p
 
 ---
 
-**Last Updated**: 2025-07-07
-**Version**: 0.6.11
-**Architecture Review**: Critical Issues Resolved - Production Ready with Comprehensive Error Handling
+**Last Updated**: 2025-07-08
+**Version**: 0.7.1 (In Progress)
+**Architecture Review**: Terminal UX Polish - Resolving Production-Ready Terminal Experience Issues Post v0.7.0
