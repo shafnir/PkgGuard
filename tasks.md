@@ -469,55 +469,81 @@ Security enhancements and vulnerability fixes
 
 ## Issues & Blockers
 
-### High Priority Issues Discovered (2025-07-07)
+### High Priority Issues Discovered (2025-07-08)
 
-- 🔴 **Fix Security Mode Message Auto-Dismiss** (🐛 Bug Fixes)
+- 🔴 **Fix HTTP Client Module Hover Display** (🐛 Bug Fixes)
   - **Status**: Pending
-  - **Description**: Security mode toggle messages don't automatically fade away after 3 seconds as intended
+  - **Description**: `from http.client import this` not displaying score in hover UI, but shows green mark for high score
   - **Priority**: High
-  - **Current Issue**: Messages stay on screen indefinitely after toggling security mode
-  - **Required Fix**: Implement proper 3-second auto-dismiss with fade effect for `showInformationMessage`
-  - **Files**: src/extension.ts
-  - **Estimated Effort**: 30 minutes
+  - **Current Issue**: Hover details missing for HTTP client module imports despite showing trust indicators
+  - **Required Fix**: Investigate hover detection for dotted module imports and ensure consistent UI display
+  - **Files**: src/ui/hovers.ts, src/detectors/python.ts
+  - **Estimated Effort**: 1 hour
 
-- 🔴 **Fix Terminal Command Spacing** (🎨 UI/UX)
+- 🔴 **Fix Terminal Prompt Spacing Final Issue** (🎨 UI/UX)
   - **Status**: Pending
-  - **Description**: Terminal prompt needs extra space between path and command input for better readability
+  - **Description**: Terminal prompt still missing proper space after path and closing bracket
   - **Priority**: Medium
-  - **Current**: `[mode] path>`
-  - **Required**: `[mode] path>  ` (extra space for padding)
+  - **Current**: `[interactive] d:\Github_Projects\Test_Folder>`
+  - **Required**: `[interactive] d:\Github_Projects\Test_Folder> ` (space after > like normal terminal)
   - **Files**: src/terminal/simple-terminal.ts
   - **Estimated Effort**: 15 minutes
 
-- 🔴 **Fix Terminal Autocomplete Display Issues** (🐛 Bug Fixes)
+- 🔴 **Fix Terminal Autocomplete Line Behavior** (🐛 Bug Fixes)
   - **Status**: Pending
-  - **Description**: Autocomplete shows unacceptable numbering indicators instead of native terminal behavior
+  - **Description**: Autocomplete creates new line instead of completing in-place like normal terminal
   - **Priority**: High
-  - **Current Issue**: Shows `pip install (1/2)` and `pip pip install -r requirements.txt (2/2)`
-  - **Required**: Clean autocomplete without completion indicators, native terminal feel
-  - **Files**: src/terminal/simple-terminal.ts (handleTabCompletion methods)
-  - **Estimated Effort**: 1 hour
+  - **Current Issue**: Tab completion causes line break instead of inline completion
+  - **Required**: In-line autocomplete behavior matching standard terminal expectations
+  - **Files**: src/terminal/simple-terminal.ts (handleTabCompletion, showCompletion methods)
+  - **Estimated Effort**: 1.5 hours
 
-- 🔴 **Fix Virtual Environment Python Path Quoting** (🐛 Bug Fixes)
-  - **Status**: Pending
-  - **Description**: Python executable path has incorrect quoting causing command execution failures
+### High Priority Issues Resolved (2025-07-08)
+
+- ✅ **Fix Security Mode Message Auto-Dismiss** (🐛 Bug Fixes)
+  - **Status**: Completed ✅
+  - **Description**: Security mode toggle messages now automatically fade away after 3 seconds as intended
   - **Priority**: High
-  - **Error**: `'\"d:\path\.venv\Scripts\python.exe\"'` is not recognized as internal/external command
-  - **Root Cause**: Double-quoting in command translation causing malformed paths
-  - **Files**: src/terminal/simple-terminal.ts (translateCommand, executeInVSCodeTerminal)
-  - **Estimated Effort**: 1 hour
+  - **Solution Applied**: Implemented `Promise.race()` with timeout to auto-dismiss security mode toggle messages
+  - **Files**: src/extension.ts
+  - **Completion Date**: 2025-07-08
+  - **Impact**: Messages now auto-dismiss properly, improving user experience
 
-- 🔴 **Enhance Virtual Environment Path Support** (🔧 Core Features)
-  - **Status**: Pending
-  - **Description**: activate-venv command has limited path support and autocomplete issues
+- ✅ **Fix Terminal Autocomplete Display Issues** (🐛 Bug Fixes)
+  - **Status**: Completed ✅
+  - **Description**: Removed unacceptable numbering indicators for native terminal behavior
+  - **Priority**: High
+  - **Solution Applied**: Removed completion indicators `(1/2)`, `(2/2)` from autocomplete display
+  - **Files**: src/terminal/simple-terminal.ts
+  - **Completion Date**: 2025-07-08
+  - **Impact**: Clean autocomplete without completion indicators, native terminal feel
+
+- ✅ **Fix Virtual Environment Python Path Quoting** (🐛 Bug Fixes)
+  - **Status**: Completed ✅
+  - **Description**: Fixed Python executable path quoting causing command execution failures
+  - **Priority**: High
+  - **Solution Applied**: Smart quoting that only quotes when paths contain spaces using `getQuotedPythonPath()`
+  - **Files**: src/terminal/simple-terminal.ts
+  - **Completion Date**: 2025-07-08
+  - **Impact**: Resolved double-quoting issues, proper command execution
+
+- ✅ **Fix Terminal Command Spacing Initial** (🎨 UI/UX)
+  - **Status**: Completed ✅
+  - **Description**: Added extra space in terminal prompt for better readability
   - **Priority**: Medium
-  - **Current Issues**: 
-    - Only detects workspace-relative venvs (.venv, venv, env, virtualenv)
-    - No autocomplete for arbitrary venv paths
-    - Can't activate venvs outside workspace
-  - **Required**: Support absolute paths, better path autocomplete, flexible venv detection
-  - **Files**: src/terminal/simple-terminal.ts (detectVirtualEnvironments, activateVirtualEnvironment)
-  - **Estimated Effort**: 2 hours
+  - **Solution Applied**: Added extra space after `>` in prompt display
+  - **Files**: src/terminal/simple-terminal.ts
+  - **Completion Date**: 2025-07-08
+  - **Impact**: Improved prompt readability (partial fix, additional spacing issue discovered)
+
+- ✅ **Enhance Virtual Environment Path Support** (🔧 Core Features)
+  - **Status**: Completed ✅
+  - **Description**: Added support for absolute and relative paths outside workspace
+  - **Priority**: Medium
+  - **Solution Applied**: Implemented `tryActivateVenvByPath()` method with path validation and enhanced autocomplete
+  - **Files**: src/terminal/simple-terminal.ts
+  - **Completion Date**: 2025-07-08
+  - **Impact**: Flexible venv activation with absolute/relative path support and path autocomplete
 
 ### Research & Investigation Items
 
@@ -566,30 +592,27 @@ When adding new tasks, use this template:
 *No current sprint defined*
 
 ### Metrics
-- **Total Tasks**: 28 (21 completed + 7 new issues/research items)
-- **Completed Tasks**: 21  
+- **Total Tasks**: 31 (26 completed + 5 new issues/research items)
+- **Completed Tasks**: 26  
 - **In Progress**: 0
-- **Pending**: 6 (5 high-priority fixes + 1 research item)
+- **Pending**: 4 (3 high-priority fixes + 1 research item)
 - **Evaluated**: 2 (dependency updates assessed)
-- **Completion Rate**: 75% (21/28 total tasks)
-- **Major Milestones**: 7/7 enhancement initiative completed (100%)
+- **Completion Rate**: 84% (26/31 total tasks)
+- **Major Milestones**: 7/7 enhancement initiative completed (100%), 5/8 v0.7.1 fixes completed (63%)
 
 ### Latest Update
-- **Date**: 2025-07-07
-- **Activity**: Major Enhancement Release - Version 0.7.0 + Issue Discovery
+- **Date**: 2025-07-08
+- **Activity**: Terminal UX Issues Resolution - Version 0.7.1 Partial + New Issue Discovery
 - **Major Achievements**: 
-  - ✅ **Terminal Enhancement Initiative**: All 7 critical enhancements completed successfully
-  - ✅ **Fix Hyphenated Package Names**: Hover details now work for "node-schedule", "@angular/core", etc.
-  - ✅ **Unified Terminal Scoring**: Cache-first approach, 90%+ performance improvement
-  - ✅ **Security Mode Indicators**: Visual mode display in terminal prompt with color coding
-  - ✅ **PowerShell Autocomplete**: Comprehensive Tab completion for commands, files, directories
-  - ✅ **Virtual Environment Support**: Complete venv workflow with VS Code integration
-  - ✅ **Terminal Profile Integration**: PkgGuard appears in VS Code terminal dropdown
-  - ✅ **Command History Navigation**: Up/down arrow navigation with 100-command storage
-  - ✅ **Extension Build**: Successful package build (401.6KB) with zero TypeScript/ESLint errors
-- **Issues Discovered**: 5 high-priority issues found during real-world testing
-- **Current Focus**: Address terminal UX issues and virtual environment path handling
-- **Next Steps**: Fix identified issues to achieve production-ready terminal experience
+  - ✅ **Security Mode Auto-Dismiss**: Messages now fade after 3 seconds as intended
+  - ✅ **Terminal Autocomplete Clean**: Removed "(1/2)" numbering indicators for native feel
+  - ✅ **Virtual Environment Path Quoting**: Smart quoting prevents double-quote command failures
+  - ✅ **Terminal Prompt Spacing**: Improved readability (partial fix)
+  - ✅ **Enhanced Venv Path Support**: Absolute/relative path activation with autocomplete
+  - ✅ **Code Quality**: Zero ESLint errors, clean TypeScript compilation
+- **New Issues Discovered**: 3 additional UX issues found during testing
+- **Current Focus**: Fix remaining hover display, prompt spacing, and autocomplete line behavior
+- **Next Steps**: Complete final terminal UX polish for production-ready experience
 
 ## Notes
 

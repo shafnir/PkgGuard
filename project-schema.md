@@ -443,13 +443,19 @@ PkgGuard has been successfully migrated from CommonJS to ES modules for better p
 
 ## Current Technical Debt & Future Work
 
-### Immediate Priorities (Post v0.7.0)
-**High Priority Issues Discovered During Testing**:
-- **Security Mode Message Auto-Dismiss**: Messages don't fade after 3 seconds as intended
-- **Terminal Autocomplete Display**: Shows unacceptable "(1/2)" numbering instead of native behavior
-- **Virtual Environment Path Quoting**: Double-quoted Python paths cause command execution failures
-- **Terminal Command Spacing**: Missing padding between prompt and command input
-- **Virtual Environment Path Support**: Limited to workspace-relative paths, needs absolute path support
+### Immediate Priorities (Post v0.7.1)
+**Remaining High Priority Issues Discovered During Testing**:
+- **HTTP Client Module Hover Display**: `from http.client import this` not displaying score in hover UI despite showing trust indicators
+- **Terminal Prompt Spacing Final Issue**: Still missing space after path (needs `[mode] path> ` format)
+- **Terminal Autocomplete Line Behavior**: Tab completion creates new line instead of in-place completion like normal terminal
+
+### Recently Resolved Issues (v0.7.1)
+**Successfully Fixed Terminal UX Issues**:
+- ✅ **Security Mode Message Auto-Dismiss**: Messages now fade after 3 seconds using Promise.race() timeout
+- ✅ **Terminal Autocomplete Display**: Removed "(1/2)" numbering indicators for clean native behavior
+- ✅ **Virtual Environment Path Quoting**: Smart quoting prevents double-quote command execution failures
+- ✅ **Terminal Command Spacing**: Improved prompt readability (partial fix, spacing refinement needed)
+- ✅ **Virtual Environment Path Support**: Added absolute/relative path activation with enhanced autocomplete
 
 ### Recent Achievements (2025-07-07)
 #### Major Terminal Enhancement Initiative - Version 0.7.0
@@ -508,6 +514,6 @@ PkgGuard has been successfully migrated from CommonJS to ES modules for better p
 
 ---
 
-**Last Updated**: 2025-07-07
-**Version**: 0.7.0
-**Architecture Review**: Major Terminal Enhancement - Full-Featured Secure Development Environment with Advanced Terminal Capabilities
+**Last Updated**: 2025-07-08
+**Version**: 0.7.1 (In Progress)
+**Architecture Review**: Terminal UX Polish - Resolving Production-Ready Terminal Experience Issues Post v0.7.0

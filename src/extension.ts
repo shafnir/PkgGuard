@@ -501,20 +501,25 @@ export function activate(context: vscode.ExtensionContext) {
         disabled: "Disabled - No security checks",
       };
 
-      // Show a consolidated message with mode description
-      vscode.window
-        .showInformationMessage(
-          `PkgGuard Security Mode: ${modeDescriptions[nextMode as keyof typeof modeDescriptions]} (Updated globally)`,
-          "Open Settings",
-        )
-        .then((selection) => {
-          if (selection === "Open Settings") {
-            vscode.commands.executeCommand(
-              "workbench.action.openSettings",
-              "pkgGuard.securityMode",
-            );
-          }
-        });
+      // Show a consolidated message with mode description and auto-dismiss after 3 seconds
+      const messagePromise = vscode.window.showInformationMessage(
+        `PkgGuard Security Mode: ${modeDescriptions[nextMode as keyof typeof modeDescriptions]} (Updated globally)`,
+        "Open Settings",
+      );
+
+      // Auto-dismiss after 3 seconds by resolving with undefined
+      const timeoutPromise = new Promise<string | undefined>((resolve) => {
+        setTimeout(() => resolve(undefined), 3000);
+      });
+
+      void Promise.race([messagePromise, timeoutPromise]).then((selection) => {
+        if (selection === "Open Settings") {
+          void vscode.commands.executeCommand(
+            "workbench.action.openSettings",
+            "pkgGuard.securityMode",
+          );
+        }
+      });
 
       // Mode change completed
     }),

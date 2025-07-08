@@ -149,7 +149,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     const venvStatus = this.getVenvStatus();
     // Show venv status, security mode and full path like PowerShell
     this.safeWriteEmitter(
-      `${venvStatus}${securityMode}\x1b[36m${cwd}>\x1b[0m `,
+      `${venvStatus}${securityMode}\x1b[36m${cwd}>\x1b[0m  `,
     );
   }
 
@@ -340,10 +340,20 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
       return;
     }
 
-    const venv = this.availableVenvs.find((v) => v.name === name);
+    // First, check if it's a known workspace venv
+    let venv = this.availableVenvs.find((v) => v.name === name);
+
+    // If not found, check if it's an absolute or relative path
+    if (!venv) {
+      venv = this.tryActivateVenvByPath(name);
+    }
+
     if (!venv) {
       this.safeWriteEmitter(
-        `\x1b[31m❌ Virtual environment '${name}' not found\x1b[0m\r\n`,
+        `\x1b[31m❌ Virtual environment '${name}' not found or invalid\x1b[0m\r\n`,
+      );
+      this.safeWriteEmitter(
+        `\x1b[33m💡 Provide a venv name (${this.availableVenvs.map((v) => v.name).join(", ")}) or absolute path\x1b[0m\r\n`,
       );
       return;
     }
@@ -358,7 +368,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     venv.isActive = true;
 
     this.safeWriteEmitter(
-      `\x1b[32m✅ Activated virtual environment '${name}'\x1b[0m\r\n`,
+      `\x1b[32m✅ Activated virtual environment '${venv.name}'\x1b[0m\r\n`,
     );
     this.safeWriteEmitter(
       `\x1b[33m💡 Python path: ${venv.pythonPath}\x1b[0m\r\n`,
@@ -376,6 +386,44 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     } catch {
       // Ignore errors updating VS Code settings
     }
+  }
+
+  /**
+   * Try to activate a virtual environment by absolute or relative path
+   */
+  private tryActivateVenvByPath(
+    venvPath: string,
+  ): VirtualEnvironment | undefined {
+    let fullPath: string;
+
+    // Handle relative paths and absolute paths
+    if (path.isAbsolute(venvPath)) {
+      fullPath = venvPath;
+    } else {
+      // Try relative to current working directory
+      const cwd = this.workspaceFolder?.uri.fsPath || process.cwd();
+      fullPath = path.resolve(cwd, venvPath);
+    }
+
+    // Verify the path exists and is a valid venv
+    if (!fs.existsSync(fullPath)) {
+      return undefined;
+    }
+
+    const pythonPath = this.getPythonPathForVenv(fullPath);
+    if (!pythonPath || !fs.existsSync(pythonPath)) {
+      return undefined;
+    }
+
+    // Create a VirtualEnvironment object for this path
+    const venvName = path.basename(fullPath);
+    return {
+      name: venvName,
+      path: fullPath,
+      pythonPath,
+      isActive: false,
+      exists: true,
+    };
   }
 
   /**
@@ -828,6 +876,15 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
             .map((v) => v.name)
             .filter((name) => partial === "" || name.startsWith(partial)),
         );
+
+        // Also provide file/directory completions for absolute/relative paths
+        if (
+          partial.includes(path.sep) ||
+          partial.includes("/") ||
+          partial.includes("\\")
+        ) {
+          completions.push(...this.getFileCompletions(partial));
+        }
         break;
     }
 
@@ -934,13 +991,6 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     }
 
     this.replaceCurrentInput(newInput);
-
-    // Show completion indicator
-    if (this.completionCandidates.length > 1) {
-      this.safeWriteEmitter(
-        `\x1b[90m (${this.completionIndex + 1}/${this.completionCandidates.length})\x1b[0m`,
-      );
-    }
   }
 
   private applySingleCompletion(completion: string): void {
@@ -1016,36 +1066,30 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
 
     const lowerCommand = command.toLowerCase().trim();
 
+    // Get the properly quoted Python path for shell execution
+    const quotedPythonPath = this.getQuotedPythonPath();
+
     // Handle pip commands
     if (lowerCommand.startsWith("pip ")) {
       // Replace 'pip' with the full path to the venv's Python + -m pip
-      return command.replace(
-        /^pip /i,
-        `"${this.activeVenv.pythonPath}" -m pip `,
-      );
+      return command.replace(/^pip /i, `${quotedPythonPath} -m pip `);
     }
 
     if (lowerCommand.startsWith("pip3 ")) {
       // Replace 'pip3' with the full path to the venv's Python + -m pip
-      return command.replace(
-        /^pip3 /i,
-        `"${this.activeVenv.pythonPath}" -m pip `,
-      );
+      return command.replace(/^pip3 /i, `${quotedPythonPath} -m pip `);
     }
 
     if (lowerCommand.startsWith("python -m pip ")) {
       // Replace 'python -m pip' with the full path to the venv's Python + -m pip
-      return command.replace(
-        /^python -m pip /i,
-        `"${this.activeVenv.pythonPath}" -m pip `,
-      );
+      return command.replace(/^python -m pip /i, `${quotedPythonPath} -m pip `);
     }
 
     if (lowerCommand.startsWith("python3 -m pip ")) {
       // Replace 'python3 -m pip' with the full path to the venv's Python + -m pip
       return command.replace(
         /^python3 -m pip /i,
-        `"${this.activeVenv.pythonPath}" -m pip `,
+        `${quotedPythonPath} -m pip `,
       );
     }
 
@@ -1055,7 +1099,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
       !lowerCommand.startsWith("python -m")
     ) {
       // Replace 'python' with the full path to the venv's Python
-      return command.replace(/^python /i, `"${this.activeVenv.pythonPath}" `);
+      return command.replace(/^python /i, `${quotedPythonPath} `);
     }
 
     if (
@@ -1063,10 +1107,28 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
       !lowerCommand.startsWith("python3 -m")
     ) {
       // Replace 'python3' with the full path to the venv's Python
-      return command.replace(/^python3 /i, `"${this.activeVenv.pythonPath}" `);
+      return command.replace(/^python3 /i, `${quotedPythonPath} `);
     }
 
     return command;
+  }
+
+  /**
+   * Get the properly quoted Python path for shell execution
+   */
+  private getQuotedPythonPath(): string {
+    if (!this.activeVenv) {
+      return "python";
+    }
+
+    const pythonPath = this.activeVenv.pythonPath;
+
+    // Only quote if the path contains spaces
+    if (pythonPath.includes(" ")) {
+      return `"${pythonPath}"`;
+    }
+
+    return pythonPath;
   }
 
   handleInput(data: string): void {
