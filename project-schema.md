@@ -677,8 +677,43 @@ PkgGuard has been successfully migrated from CommonJS to ES modules for better p
 - Integration with other security tools
 - Custom UI themes and layouts
 
+## Version 0.7.3 Enhancements
+
+### Node.js Built-in Module Detection
+The JavaScript detector now properly handles Node.js built-in modules with `node:` prefix:
+- **Detection**: `normalizePackageName()` function in `src/detectors/javascript.ts` strips `node:` prefix
+- **Scoring**: Built-in modules receive score of 100 from JavaScript scoring engine
+- **Example**: `import * as path from "node:path"` → detects as `path` → scores as built-in
+
+### Deprecated Package Detection System
+Complete deprecation detection pipeline for npm packages:
+
+**Data Flow**:
+1. **npm Registry** → Returns deprecation info in package metadata
+2. **npm Adapter** (`src/adapters/npm.ts`) → Extracts `deprecated` field and parses replacement suggestions
+3. **JavaScript Scoring** (`src/scoring/javascript.ts`) → Applies -60 penalty for deprecated packages
+4. **Hover UI** (`src/ui/hovers.ts`) → Displays deprecation warnings and replacement suggestions
+5. **Terminal** → Shows deprecation info during package installation
+
+**Key Components**:
+- **Registry Info Interface**: Extended with `deprecated?` and `replacement?` fields
+- **Trust Score Interface**: Extended with deprecation fields for UI display
+- **Pattern Matching**: Extracts replacement packages from messages like "renamed to", "use instead", etc.
+
+### Terminal Autocomplete Fix
+Fixed terminal autocomplete to work in-place:
+- **Issue**: `fixOutputForPseudoterminal()` was corrupting VT100 escape sequences
+- **Fix**: Added check to preserve escape sequences containing `\x1b[`
+- **Result**: `\r\x1b[K` (carriage return + clear line) now works correctly
+
+### Critical Bug Fixes
+Fixed data flow issues in `src/extension.ts`:
+- **`isRegistryInfo()` Type Guard**: Now validates optional deprecation fields
+- **`createDefaultRegistryInfo()`**: Now includes deprecation fields with undefined values
+- **Impact**: Deprecation data now flows correctly through the entire system
+
 ---
 
 **Last Updated**: 2025-07-09
-**Version**: 0.7.2 (Current)
-**Architecture Review**: Production-Ready - Complete Terminal UX Polish and Documentation Enhancement
+**Version**: 0.7.3 (Current)
+**Architecture Review**: Production-Ready - Enhanced with Node.js support, deprecation detection, and terminal improvements

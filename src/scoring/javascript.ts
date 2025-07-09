@@ -246,6 +246,19 @@ export class JavaScriptScoringEngine implements Scorer {
     let riskPenalty = 0;
     riskPenalty += uniqueHigh.length * 20;
     riskPenalty += uniqueMedium.length * 5;
+
+    // Apply deprecation penalty
+    if (info.deprecated) {
+      riskPenalty += 60;
+      filteredScoreReasons.push(`⚠️ Package is deprecated: ${info.deprecated}`);
+
+      if (info.replacement) {
+        filteredScoreReasons.push(
+          `💡 Recommended replacement: ${info.replacement}`,
+        );
+      }
+    }
+
     let baseScore = this.computeScore(evidence) + boost - riskPenalty;
     // Clamp perfect packages to 100, but if any risk factors exist, clamp to 95
     let isPerfect =
@@ -299,6 +312,8 @@ export class JavaScriptScoringEngine implements Scorer {
       releaseDate,
       riskFactors,
       githubRepo: info.githubRepo,
+      deprecated: info.deprecated,
+      replacement: info.replacement,
     };
     setCachedScore("javascript", name, result);
     return result;

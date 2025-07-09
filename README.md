@@ -2,7 +2,7 @@
 
 **PkgGuard** is a VS Code extension that protects developers from AI hallucinations and malicious package imports by analyzing package trustworthiness in real-time. It supports Python (PyPI) and JavaScript/TypeScript (npm) ecosystems with comprehensive terminal integration.
 
-[![Version](https://img.shields.io/badge/version-0.7.2-blue.svg)](https://github.com/shafnir/PkgGuard/releases)
+[![Version](https://img.shields.io/badge/version-0.7.3-blue.svg)](https://github.com/shafnir/PkgGuard/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.101.0+-blue.svg)](https://code.visualstudio.com/)
 
@@ -28,6 +28,8 @@ Once installed, PkgGuard automatically analyzes your imports:
 - **Trust Badges**: Inline indicators for every import (🟢 High, 🟡 Medium, 🔴 Low, ❓ Unknown)
 - **Hover Details**: Rich information panels with trust scores, risk factors, and registry links
 - **Smart Detection**: Supports complex imports like `from flask import Flask` and `import xml.etree.ElementTree`
+- **Node.js Built-ins**: Full support for `node:` prefix imports (e.g., `import * as path from "node:path"`)
+- **Deprecation Warnings**: Detects deprecated npm packages with replacement suggestions
 - **Typosquatting Protection**: Detects packages with suspicious names similar to popular ones
 
 ### 🖥️ Smart Terminal Integration
@@ -92,6 +94,24 @@ Access settings via VS Code Settings (Ctrl+,) and search for "PkgGuard":
 - `pkgGuard.securityMode` - Set terminal security mode
 - `pkgGuard.cacheTTL` - Cache duration (default: 48 hours)
 - `pkgGuard.terminal.enabled` - Enable terminal monitoring
+
+## 🎉 What's New in v0.7.3
+
+### 🆕 Node.js Built-in Module Support
+- Properly detects and scores imports with `node:` prefix
+- Example: `import * as path from "node:path"` now scores 100 (built-in)
+- All Node.js built-in modules are recognized and trusted
+
+### ⚠️ Deprecated Package Detection
+- Automatically detects deprecated npm packages
+- Shows clear warnings with replacement suggestions
+- -60 trust score penalty for deprecated packages
+- Example: `vsce` shows deprecation warning and suggests `@vscode/vsce`
+
+### 🖥️ Terminal Autocomplete Fix
+- Tab completion now properly completes in-place
+- No more unwanted new lines during autocomplete
+- Professional terminal behavior matching standard shells
 
 ## 🎯 Trust Levels
 

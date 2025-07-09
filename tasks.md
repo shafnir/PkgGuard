@@ -12,13 +12,14 @@ PkgGuard is a mature VS Code extension providing real-time security analysis for
 - **Performance Optimized**: Cache-first approach with 90%+ performance improvement
 
 ### Current Status
-- **Project Version**: 0.7.2
+- **Project Version**: 0.7.3
 - **Last Updated**: 2025-07-09
-- **Current Phase**: Production-Ready - All v0.7.1 Issues Resolved
+- **Current Phase**: Production-Ready - Enhanced with Node.js support and deprecation detection
 - **Active Tasks**: 0 pending (all identified issues resolved)
-- **Completion Rate**: 94% (29/31 actionable tasks)
+- **Completion Rate**: 96% (32/33 actionable tasks)
 
 ### Version History Quick Reference
+- **v0.7.3**: Node.js built-in support, npm deprecation detection, terminal autocomplete fix
 - **v0.7.2**: Terminal UX polish and production readiness
 - **v0.7.1**: Critical terminal UX issues resolution
 - **v0.7.0**: Major terminal enhancement initiative
@@ -285,6 +286,42 @@ Security enhancements and vulnerability fixes
   - **Notes**: Core functionality excellent, upgrade deferred to future enhancement phase
 
 ## Completed Tasks
+
+### 2025-07-09 (Version 0.7.3 - Node.js Support & Deprecation Detection)
+- ✅ **Node.js Built-in Module Detection** (🔧 Core Features)
+  - **Status**: Completed
+  - **Description**: Added support for Node.js built-in imports with `node:` prefix
+  - **Completion Date**: 2025-07-09
+  - **Technical Details**:
+    - Added `normalizePackageName()` function in `src/detectors/javascript.ts`
+    - Strips `node:` prefix to properly identify built-in modules
+    - Built-in modules receive trust score of 100
+  - **Example**: `import * as path from "node:path"` now works correctly
+  
+- ✅ **npm Deprecation Detection System** (🔧 Core Features, 🎨 UI/UX)
+  - **Status**: Completed
+  - **Description**: Complete deprecation detection pipeline for npm packages
+  - **Completion Date**: 2025-07-09
+  - **Components Delivered**:
+    - Extended TypeScript interfaces with deprecation fields
+    - Enhanced npm adapter to extract deprecation info
+    - JavaScript scoring engine applies -60 penalty
+    - Hover UI displays deprecation warnings
+    - Automatic replacement package detection
+  - **Technical Details**:
+    - Pattern matching for replacement suggestions ("renamed to", "use instead", etc.)
+    - Fixed critical type guards in `extension.ts` for data flow
+    - Score penalty matches typosquatting severity
+  - **Example**: `vsce` package shows deprecation with `@vscode/vsce` suggestion
+  
+- ✅ **Terminal Autocomplete In-Place Fix** (🎨 UI/UX)
+  - **Status**: Completed
+  - **Description**: Fixed terminal autocomplete creating new lines
+  - **Completion Date**: 2025-07-09
+  - **Technical Fix**:
+    - Modified `fixOutputForPseudoterminal()` to preserve VT100 escape sequences
+    - `\r\x1b[K` now works correctly for in-place replacement
+  - **Result**: Professional terminal behavior matching standard shells
 
 ### 2025-07-07 (Critical Issues Resolution - Version 0.6.11)
 - ✅ **Complete Bug Fix Implementation** (🔧 Core Features, 🎨 UI/UX, 🐛 Bug Fixes)
@@ -642,19 +679,20 @@ Build Success:       100% ✅
 
 ### Latest Update
 - **Date**: 2025-07-09
-- **Activity**: Terminal UX Issues Resolution - Version 0.7.1 Complete
+- **Activity**: Version 0.7.3 - Node.js Support, Deprecation Detection, Terminal Enhancements
 - **Major Achievements**: 
-  - ✅ **HTTP Client Hover Display**: Fixed dotted module hover with base package fallback
-  - ✅ **Terminal Prompt Spacing**: Corrected spacing after > symbol for native feel
-  - ✅ **Autocomplete Line Behavior**: Fixed in-place completion without new lines
-  - ✅ **Process Management**: Confirmed current per-command process design is correct
-  - ✅ **All v0.7.1 Issues Resolved**: 100% completion of identified UX issues
+  - ✅ **Node.js Built-in Detection**: Fixed `import * as path from "node:path"` syntax support
+  - ✅ **npm Deprecation Detection**: Complete system with -60 penalty and replacement suggestions
+  - ✅ **Terminal Autocomplete Fix**: Fixed in-place completion (no more new lines)
+  - ✅ **Critical Data Flow Fix**: Updated type guards and default values for deprecation fields
+  - ✅ **Documentation Updates**: Updated all project docs for v0.7.3 features
 - **Technical Implementation**:
-  - Modified `hovers.ts` to check base package name for dotted imports
-  - Updated `showPrompt()` to use single space after >
-  - Refactored `replaceCurrentInput()` to avoid creating new lines
-- **Current Status**: All identified issues resolved, terminal UX production-ready
-- **Next Steps**: Version 0.7.1 ready for release with complete terminal polish
+  - Added `normalizePackageName()` in JavaScript detector for `node:` prefix
+  - Extended npm adapter with deprecation extraction and pattern matching
+  - Fixed `fixOutputForPseudoterminal()` to preserve VT100 escape sequences
+  - Fixed `isRegistryInfo()` and `createDefaultRegistryInfo()` for deprecation support
+- **Current Status**: Version 0.7.3 complete with all enhancements working correctly
+- **Next Steps**: Extension packaged and ready for release
 
 ## Notes
 

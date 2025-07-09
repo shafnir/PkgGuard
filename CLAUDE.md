@@ -322,6 +322,29 @@ install-manifest     # Install with security filtering
 - `PkgGuard: Clear Cache` - Clear all cached scores
 - `PkgGuard: Validate Current File` - Force re-scan current file
 
+## Recent Enhancements (Version 0.7.3)
+
+### Node.js Built-in Module Support
+PkgGuard now properly detects and scores Node.js built-in modules with the `node:` prefix:
+- **Syntax**: `import * as path from "node:path"` 
+- **Detection**: Automatically strips `node:` prefix to identify built-in modules
+- **Scoring**: Built-in modules receive maximum trust score (100)
+- **Supported Modules**: All Node.js built-ins (fs, path, util, os, crypto, etc.)
+
+### Deprecated Package Detection
+PkgGuard now detects and warns about deprecated npm packages:
+- **Detection**: Extracts deprecation info from npm registry metadata
+- **Score Impact**: -60 penalty (same severity as typosquatting)
+- **UI Display**: Shows deprecation warnings in hover tooltips
+- **Replacement Suggestions**: Automatically extracts and displays replacement package recommendations
+- **Example**: `vsce` shows deprecation warning with suggestion to use `@vscode/vsce`
+
+### Terminal Autocomplete Enhancement
+Fixed terminal autocomplete to complete in-place instead of creating new lines:
+- **Issue Fixed**: Tab completion now replaces current line instead of creating new lines
+- **Technical Fix**: Preserves VT100 escape sequences (`\r\x1b[K`) for proper cursor control
+- **Result**: Professional terminal behavior matching standard shells
+
 ## Task Management System
 
 ### Personal Assistant Tools

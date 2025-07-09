@@ -458,7 +458,7 @@ export class ScoringEngine implements Scorer {
         },
         scoreReasons: [
           "⚪ This package is ignored by your configuration." +
-            (ignore.note ? ` Note: ${ignore.note}` : ""),
+          (ignore.note ? ` Note: ${ignore.note}` : ""),
         ],
         riskFactors: [],
         githubRepo,
@@ -468,8 +468,8 @@ export class ScoringEngine implements Scorer {
     // Persistent cache check (python)
     const ttl =
       typeof process !== "undefined" &&
-      process.env &&
-      process.env.PKG_GUARD_CACHE_TTL
+        process.env &&
+        process.env.PKG_GUARD_CACHE_TTL
         ? parseInt(process.env.PKG_GUARD_CACHE_TTL)
         : 172800;
     // Always reload cache before checking

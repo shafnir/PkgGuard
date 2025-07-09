@@ -77,7 +77,9 @@ function isRegistryInfo(obj: unknown): obj is RegistryInfo {
     return false;
   }
   const candidate = obj as Record<string, unknown>;
-  return (
+
+  // Check required fields
+  const hasRequiredFields =
     "exists" in candidate &&
     "downloads" in candidate &&
     "latestRelease" in candidate &&
@@ -87,8 +89,18 @@ function isRegistryInfo(obj: unknown): obj is RegistryInfo {
     typeof candidate.downloads === "number" &&
     typeof candidate.latestRelease === "number" &&
     typeof candidate.maintainerCount === "number" &&
-    typeof candidate.highVulnCount === "number"
-  );
+    typeof candidate.highVulnCount === "number";
+
+  // Check optional deprecation fields (if present, they must be strings or undefined)
+  const hasValidDeprecationFields =
+    (!("deprecated" in candidate) ||
+      candidate.deprecated === undefined ||
+      typeof candidate.deprecated === "string") &&
+    (!("replacement" in candidate) ||
+      candidate.replacement === undefined ||
+      typeof candidate.replacement === "string");
+
+  return hasRequiredFields && hasValidDeprecationFields;
 }
 
 /**
@@ -101,6 +113,8 @@ function createDefaultRegistryInfo(): RegistryInfo {
     latestRelease: 0,
     maintainerCount: 0,
     highVulnCount: 0,
+    deprecated: undefined,
+    replacement: undefined,
   };
 }
 

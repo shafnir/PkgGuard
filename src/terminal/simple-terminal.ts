@@ -92,6 +92,12 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     // Solution: Ensure consistent line endings and add explicit carriage returns
     // where needed to prevent cursor positioning issues
 
+    // Preserve VT100 escape sequences for cursor control
+    if (data.includes("\x1b[K") || data.includes("\x1b[")) {
+      // For escape sequences, don't modify the data as it contains terminal control codes
+      return data;
+    }
+
     return (
       data
         // Normalize line endings first
@@ -591,10 +597,12 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     const cwd = this.workspaceFolder?.uri.fsPath || process.cwd();
     const securityMode = this.getSecurityModeDisplay();
     const venvStatus = this.getVenvStatus();
-    
+
     // Clear from start of line and rewrite prompt + new input
-    this.safeWriteEmitter(`\r\x1b[K${venvStatus}${securityMode}\x1b[36m${cwd}> \x1b[0m${newInput}`);
-    
+    this.safeWriteEmitter(
+      `\r\x1b[K${venvStatus}${securityMode}\x1b[36m${cwd}> \x1b[0m${newInput}`,
+    );
+
     // Update internal state
     this.currentInput = newInput;
   }
