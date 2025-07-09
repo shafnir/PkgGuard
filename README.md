@@ -1,99 +1,140 @@
-# 🛡️ PkgGuard: Package Trust for VS Code
+# 🛡️ PkgGuard: Package Security for VS Code
 
-**PkgGuard** is your modern security companion for Python and JavaScript/TypeScript development in VS Code. Instantly see the trustworthiness of your dependencies—right in your editor.
+**PkgGuard** is a VS Code extension that protects developers from AI hallucinations and malicious package imports by analyzing package trustworthiness in real-time. It supports Python (PyPI) and JavaScript/TypeScript (npm) ecosystems with comprehensive terminal integration.
 
-## 🚀 Overview
-PkgGuard analyzes your import statements and gives you real-time trust scores, risk factors, and direct links to package registries and GitHub. Stay safe, code with confidence, and never get caught off guard by a risky dependency again.
+[![Version](https://img.shields.io/badge/version-0.7.2-blue.svg)](https://github.com/shafnir/PkgGuard/releases)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![VS Code](https://img.shields.io/badge/VS%20Code-1.101.0+-blue.svg)](https://code.visualstudio.com/)
 
-> **Note:** PkgGuard is designed to protect you from AI hallucinations and package authenticity issues. It does **not** scan for known CVEs or vulnerabilities. Instead, it helps you avoid fake, typo-squatted, or suspicious packages by scoring their trustworthiness. No tool can promise 100% security—PkgGuard is your smart first line of defense, not a silver bullet. Use it as a savvy dev, and always review critical dependencies!
+## 🚀 Quick Start
 
-## 🗺️ High-Level Architecture
+### Installation
+1. Open VS Code
+2. Go to Extensions (Ctrl+Shift+X)
+3. Search for "PkgGuard"
+4. Install and reload VS Code
+
+### Instant Security Analysis
+Once installed, PkgGuard automatically analyzes your imports:
+- **Python**: `import requests`, `from flask import Flask`
+- **JavaScript/TypeScript**: `import axios from 'axios'`, `const express = require('express')`
+
+## 🗺️ Architecture Overview
 ![PkgGuard Architecture](https://raw.githubusercontent.com/shafnir/PkgGuard/refs/heads/main/docs/architecture.png)
 
-## ✨ Features
+## ✨ Key Features
 
-### Core Security Features
-- **Trust Badges:** Inline trust scores for every import in your code (🟢 High, 🟡 Medium, 🔴 Low, ❓ Unknown).
-- **Risk Factors:** See why a package is risky (e.g., single maintainer, outdated, low downloads).
-- **Direct Links:** Jump straight to PyPI, npm, or GitHub from your editor.
-- **Ignore/Unignore:** Instantly ignore packages you trust (or unignore them) with a click.
-- **Smart Caching:** Fast, efficient, and respects your workflow—no unnecessary network calls.
-- **No Telemetry:** Your code and data never leave your machine.
+### 🔍 Real-Time Security Analysis
+- **Trust Badges**: Inline indicators for every import (🟢 High, 🟡 Medium, 🔴 Low, ❓ Unknown)
+- **Hover Details**: Rich information panels with trust scores, risk factors, and registry links
+- **Smart Detection**: Supports complex imports like `from flask import Flask` and `import xml.etree.ElementTree`
+- **Typosquatting Protection**: Detects packages with suspicious names similar to popular ones
 
-### 🖥️ Enhanced Terminal Features (v0.7.0+)
-- **Smart Terminal:** Access via terminal dropdown or command palette (`PkgGuard: Create Terminal`)
-- **Security Monitoring:** Real-time package analysis during installations with configurable modes:
-  - `[interactive]` 🟢 - Ask for approval on risky packages
-  - `[monitor]` 🟡 - Show warnings but allow installation
-  - `[block]` 🔴 - Automatically block risky packages
-  - `[disabled]` ⚪ - No security checks
-- **Command History:** Navigate previous commands with ↑/↓ arrow keys (100-command storage)
-- **PowerShell Autocomplete:** Tab completion for commands, files, and directories
-- **Virtual Environment Support:** Built-in commands for Python development:
-  - `create-venv [name]` - Create new virtual environment
-  - `activate-venv [name/path]` - Activate environment
-  - `deactivate-venv` - Deactivate current environment
-  - `list-venvs` - List available environments
-- **Manifest Scanning:** Analyze `requirements.txt` and `package.json` for security risks
+### 🖥️ Smart Terminal Integration
+**Access**: Terminal dropdown → "PkgGuard Smart Terminal" or Command Palette → "PkgGuard: Create Terminal"
+
+**Security Modes**:
+- `[interactive]` 🟢 - Ask for approval on risky packages
+- `[monitor]` 🟡 - Show warnings but allow installation  
+- `[block]` 🔴 - Automatically block risky packages
+- `[disabled]` ⚪ - No security checks
+
+**Terminal Features**:
+- **Command History**: Navigate with ↑/↓ arrows (100-command storage)
+- **Tab Completion**: Autocomplete for commands, files, and directories
+- **Virtual Environment Support**: Full Python venv workflow with VS Code integration
+- **Manifest Scanning**: Security analysis for `requirements.txt` and `package.json`
+
+### 🐍 Python Virtual Environment Workflow
+```bash
+create-venv myproject    # Create new environment
+activate-venv myproject  # Activate environment
+pip install requests     # Install with security monitoring
+deactivate-venv         # Deactivate environment
+```
+
+### 🔒 Privacy & Performance
+- **Local Processing**: No telemetry, your code stays on your machine
+- **Smart Caching**: Fast response times with intelligent caching
+- **Optimized Performance**: Efficient processing that doesn't slow down your editor
+- **Minimal Network Usage**: Only checks packages when needed
 
 ## 🧠 How It Works
-1. Detects imports in Python, JavaScript, and TypeScript files.
-2. Fetches metadata from PyPI, npm, and GitHub.
-3. Calculates a trust score and highlights risks directly in your editor.
-4. Lets you take action—ignore, review, or research—without leaving VS Code.
 
-## 🕹️ Usage
+1. **Import Detection**: Automatically detects package imports in Python, JavaScript, and TypeScript files
+2. **Registry Analysis**: Analyzes packages from PyPI, npm, and GitHub for trustworthiness
+3. **Trust Scoring**: Evaluates packages based on multiple security and reliability factors
+4. **Real-Time Updates**: Shows trust indicators directly in your editor
+5. **Terminal Protection**: Monitors package installations and warns about risky packages
+
+## 📖 Usage Guide
 
 ### Editor Features
-- **Hover** over any import to see its trust score, risk factors, and direct links.
-- **Ignore/Unignore** a package: Click the "Ignore package" or "Unignore package" link in the hover UI.
-- **Clear cache:** Run the `PkgGuard: Clear Cache` command from the Command Palette (`Ctrl+Shift+P`).
-- **Toggle PkgGuard:** Click the shield icon in the status bar to enable or disable the extension instantly.
+- **Hover** over any import to see trust score, risk factors, and direct links
+- **Ignore/Unignore** packages via hover UI or Command Palette
+- **Clear cache** with `PkgGuard: Clear Cache` command
+- **Toggle extension** via status bar shield icon
 
-### Terminal Usage
-1. **Create a PkgGuard Terminal:**
-   - From terminal dropdown: Select "PkgGuard Smart Terminal"
-   - From command palette: Run `PkgGuard: Create Terminal`
+### Terminal Commands
+| Command | Description |
+|---------|-------------|
+| `create-venv [name]` | Create new virtual environment |
+| `activate-venv [name/path]` | Activate virtual environment |
+| `deactivate-venv` | Deactivate current environment |
+| `list-venvs` | List available environments |
+| `scan-manifest` | Analyze requirements.txt/package.json |
+| `install-manifest` | Install dependencies with security filtering |
+| `help` | Show all available commands |
 
-2. **Security Mode:**
-   - Toggle modes: Run `PkgGuard: Toggle Security Mode` or use the command palette
-   - Current mode displays in terminal prompt: `[interactive] C:\path> `
+### Configuration
+Access settings via VS Code Settings (Ctrl+,) and search for "PkgGuard":
+- `pkgGuard.enabled` - Enable/disable extension
+- `pkgGuard.securityMode` - Set terminal security mode
+- `pkgGuard.cacheTTL` - Cache duration (default: 48 hours)
+- `pkgGuard.terminal.enabled` - Enable terminal monitoring
 
-3. **Virtual Environment Workflow:**
-   ```bash
-   # Create a new virtual environment
-   create-venv myproject
-   
-   # Activate it
-   activate-venv myproject
-   
-   # Install packages with security monitoring
-   pip install flask requests
-   
-   # Deactivate when done
-   deactivate-venv
-   ```
+## 🎯 Trust Levels
 
-4. **Manifest Scanning:**
-   ```bash
-   # Scan your project dependencies
-   scan-manifest
-   
-   # Install with security filtering
-   install-manifest
-   ```
+PkgGuard evaluates packages and shows trust indicators:
 
-## 🔒 Why PkgGuard?
-- **Security-first:** Know your dependencies before you `pip install` or `npm install`.
-- **Full development workflow:** From code editor to terminal, PkgGuard protects your entire development process.
-- **Smart terminal integration:** Virtual environments, command history, and autocomplete—all with security monitoring.
-- **Open, transparent, and privacy-respecting.**
-- **Designed for modern devs:** Fast, beautiful, and non-intrusive.
+- **🟢 High Trust**: Well-established, popular packages with good maintenance
+- **🟡 Medium Trust**: Decent packages but may have some concerns
+- **🔴 Low Trust**: Packages with significant risk factors or concerns
+- **❓ Unknown**: Unable to evaluate (network issues, new packages)
+- **⚪ Ignored**: Packages you've chosen to ignore
+
+## 🔧 Development & Contributing
+
+### Requirements
+- VS Code 1.101.0+
+- Node.js 20.0.0+
+
+### Build Commands
+```bash
+npm run compile    # Build the extension
+npm run watch      # Watch mode for development
+npm run test       # Run tests
+npm run lint       # Check code quality
+npm run package    # Create extension package
+```
+
+## 🔒 Security & Privacy
+
+> **Important**: PkgGuard helps identify suspicious packages but doesn't scan for known CVEs. It's designed to prevent AI hallucinations and typosquatting attacks—your smart first line of defense.
+
+- **Local Processing**: No telemetry, all data stays on your machine
+- **Secure Connections**: All external API calls use secure HTTPS connections
+- **Privacy First**: We don't collect or store any of your code or personal information
+- **Reliable**: Designed to handle network issues gracefully without disrupting your workflow
+
+## 📝 License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
 ---
 
-**Stay safe. Stay productive. Trust your code with PkgGuard.**
-
----
-
-_Developed with ❤️ for the open source community._ 
+**Stay secure. Code confidently. Trust PkgGuard.** 
