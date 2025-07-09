@@ -1657,23 +1657,42 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     }
 
     if (securityMode === "monitor") {
-      this.writeEmitter.fire(
-        "\x1b[33m⚠️ Warning: High-risk packages detected but proceeding (monitor mode).\x1b[0m\r\n",
-      );
+      // Check for deprecated packages in monitor mode
+      const hasDeprecated = highRiskPackages.some((r) => r.score.deprecated);
+      if (hasDeprecated) {
+        this.writeEmitter.fire(
+          "\x1b[33m⚠️  Warning: ⚠️  DEPRECATED PACKAGE detected but proceeding (monitor mode).\x1b[0m\r\n",
+        );
+      } else {
+        this.writeEmitter.fire(
+          "\x1b[33m⚠️  Warning: High-risk packages detected but proceeding (monitor mode).\x1b[0m\r\n",
+        );
+      }
       return true;
     }
 
     // Interactive mode - ask for user approval
-    return await this.requestUserApproval(command, packages);
+    return await this.requestUserApproval(command, packages, highRiskPackages);
   }
 
   private async requestUserApproval(
     command: string,
     packages: Array<{ name: string; ecosystem: "python" | "javascript" }>,
+    highRiskPackages?: Array<{ package: string; score: TrustScore }>,
   ): Promise<boolean> {
-    this.writeEmitter.fire(
-      "\r\n\x1b[31m🚨 WARNING: High-risk packages detected!\x1b[0m\r\n",
-    );
+    // Check for deprecated packages to show specific warning
+    const hasDeprecated =
+      highRiskPackages?.some((r) => r.score.deprecated) ?? false;
+
+    if (hasDeprecated) {
+      this.writeEmitter.fire(
+        "\r\n\x1b[31m🚨 WARNING: ⚠️  DEPRECATED PACKAGE detected!\x1b[0m\r\n",
+      );
+    } else {
+      this.writeEmitter.fire(
+        "\r\n\x1b[31m🚨 WARNING: High-risk packages detected!\x1b[0m\r\n",
+      );
+    }
     this.writeEmitter.fire(
       "\x1b[33m❓ Proceed with risky installation?\x1b[0m\r\n",
     );
@@ -1693,7 +1712,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     if (char === "y") {
       this.writeEmitter.fire("y\r\n");
       this.writeEmitter.fire(
-        "\x1b[33m⚠️ Proceeding with risky installation.\x1b[0m\r\n",
+        "\x1b[33m⚠️  Proceeding with risky installation.\x1b[0m\r\n",
       );
       this.pendingSecurityCheck.resolve(true);
       this.isInSecurityPrompt = false;
@@ -2189,7 +2208,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
 
     if (totalPackages.length === 0) {
       this.writeEmitter.fire(
-        "\\x1b[33m⚠️ No packages found in manifest files\\x1b[0m\\r\\n",
+        "\\x1b[33m⚠️  No packages found in manifest files\\x1b[0m\\r\\n",
       );
       return;
     }
@@ -2355,7 +2374,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
 
     if (highRisk.length > 0) {
       this.writeEmitter.fire(
-        `\\r\\n\\x1b[31m⚠️ HIGH RISK PACKAGES DETECTED:\\x1b[0m\\r\\n`,
+        `\\r\\n\\x1b[31m⚠️  HIGH RISK PACKAGES DETECTED:\\x1b[0m\\r\\n`,
       );
       for (const pkg of highRisk) {
         this.writeEmitter.fire(
@@ -2800,22 +2819,81 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
               setCachedScore(ecosystem, pkgName, score);
             }
 
-            report += `\nPackage: ${pkgName}\n`;
-            report += `Trust Score: ${score.score || "N/A"}\n`;
-            report += `Risk Level: ${score.level}\n`;
+            // Enhanced report format matching terminal/hover UI
+            report += `\nPackage: ${pkgName} (${ecosystem})\n`;
+            const levelEmoji =
+              score.level === "high"
+                ? "🟢"
+                : score.level === "medium"
+                  ? "🟡"
+                  : score.level === "low"
+                    ? "🔴"
+                    : score.level === "ignored"
+                      ? "⚪"
+                      : "❓";
+            report += `${levelEmoji} Trust Score: ${score.score || "N/A"}\n`;
 
-            if (score.riskFactors && score.riskFactors.length > 0) {
-              report += `Risk Factors:\n`;
-              for (const risk of score.riskFactors) {
-                report += `  - ${risk.text}\n`;
+            // Show deprecation warning if applicable
+            if (score.deprecated) {
+              report += `\n⚠️  DEPRECATED PACKAGE\n`;
+              report += `${score.deprecated}\n`;
+              if (score.replacement) {
+                report += `💡 Recommended replacement: ${score.replacement}\n`;
               }
             }
 
-            if (score.evidence?.registryUrl) {
-              report += `Registry: ${score.evidence.registryUrl}\n`;
+            // Enhanced evidence section
+            if (score.evidence) {
+              report += `\n🔍 Evidence:\n`;
+              if (score.evidence.exists) {
+                report += `✅ Package exists on ${ecosystem === "python" ? "PyPI" : "npm"} registry\n`;
+              }
+              if (score.evidence.downloads) {
+                const period = ecosystem === "python" ? "/month" : "/week";
+                report += `📊 Downloads: ${score.evidence.downloads.toLocaleString()} ${period}\n`;
+              }
+              if (score.releaseDate) {
+                report += `📅 Last release: ${score.releaseDate}\n`;
+              }
+              if (score.evidence.maintainerCount) {
+                report += `👥 Maintainers: ${score.evidence.maintainerCount}\n`;
+              }
+              if (score.evidence.registryUrl) {
+                report += `🔗 Registry: ${score.evidence.registryUrl}\n`;
+              }
+              if (score.evidence.githubRepo) {
+                report += `📂 GitHub: ${score.evidence.githubRepo}\n`;
+              }
+              if (
+                score.evidence.vulnerabilities &&
+                score.evidence.vulnerabilities > 0
+              ) {
+                report += `🚨 Vulnerabilities: ${score.evidence.vulnerabilities}\n`;
+              }
             }
 
-            report += `---\n`;
+            // Enhanced risk factors section
+            if (score.riskFactors && score.riskFactors.length > 0) {
+              report += `\n🔴 Risk Factors:\n`;
+              for (const risk of score.riskFactors) {
+                report += `  🔴 ${risk.text}\n`;
+              }
+            }
+
+            // Enhanced recommendation section
+            if (score.level === "low") {
+              report += `\n💡 Recommendation:\n`;
+              if (score.deprecated) {
+                report += `This package is deprecated and should not be used in new projects.\n`;
+                if (score.replacement) {
+                  report += `Consider using the recommended replacement: ${score.replacement}\n`;
+                }
+              } else {
+                report += `This package has been flagged as high-risk. Consider using a more trusted alternative.\n`;
+              }
+            }
+
+            report += `\n${"-".repeat(60)}\n`;
           } catch {
             report += `\nPackage: ${pkgName}\n`;
             report += `Error: Could not analyze package\n`;
