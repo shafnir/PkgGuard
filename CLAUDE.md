@@ -38,7 +38,7 @@ PkgGuard is a VS Code extension that protects developers from AI hallucinations 
 - Always use context7 mcp to research for new packages and features. If you can't find what you looking for in context7, use the internet.
 - The development was migrated from CommonJS to ES6 modules, with backward compatibility. So every future development should be in modern ES6 modules.
 
-## Enhanced Terminal Features (Version 0.7.0)
+## Enhanced Terminal Features (Version 0.7.0+)
 
 PkgGuard now includes a comprehensive smart terminal with advanced development capabilities:
 
@@ -115,6 +115,58 @@ npm install                      # With security filtering
 | `list-venvs` | List available virtual environments | `list-venvs` |
 | `scan-manifest` | Scan requirements.txt, package.json | `scan-manifest` |
 | `install-manifest` | Install dependencies with security | `install-manifest` |
+
+### Enhanced Package Details Display (v0.7.4)
+
+When installing packages, PkgGuard now provides comprehensive package analysis with detailed information matching the Hover UI:
+
+**Security Prompt Example**:
+```bash
+(.venv) [interactive] d:\Github_Projects\Test_Folder> npm i vscode
+🛡️ PkgGuard: Analyzing packages for security risks...
+🔴 vscode: Score 5
+
+🚨 WARNING: High-risk packages detected!
+❓ Proceed with risky installation?
+Options: (y)es, (N)o [default], (d)etails: 
+```
+
+**Enhanced Details Display** (Press 'd' for details):
+```bash
+📋 Package Risk Details:
+──────────────────────────────────────────────────
+
+📦 vscode (javascript)
+   🔴 Trust Score: 5
+
+   ⚠️ DEPRECATED PACKAGE
+   This package is deprecated and no longer maintained.
+   💡 Recommended replacement: @vscode/vsce
+
+   🔍 Evidence:
+   ✅ Package exists on npm registry
+   📊 Downloads: 1,234,567 /week
+   📅 Last release: 2019-05-15
+   👥 Maintainers: 2
+   🔗 Registry: https://www.npmjs.com/package/vscode
+   📂 GitHub: https://github.com/Microsoft/vscode
+
+   🔴 Risk Factors:
+     🔴 Package has not been updated in over 3 years
+     🔴 Package is deprecated and no longer maintained
+
+   💡 Recommendation:
+   This package is deprecated and should not be used in new projects.
+   Consider using the recommended replacement: @vscode/vsce
+```
+
+**Key Features of Enhanced Details**:
+- **Trust Level Indicators**: Visual emoji indicators (🟢🟡🔴⚪❓)
+- **Deprecation Warnings**: Clear warnings with replacement suggestions
+- **Comprehensive Evidence**: Registry status, downloads, release dates, maintainers
+- **Risk Factor Analysis**: Color-coded risk assessment
+- **Actionable Recommendations**: Context-aware guidance based on trust level
+- **Complete Link Support**: Registry and GitHub repository links
 
 ### Known Issues & Workarounds (v0.7.0)
 
@@ -322,25 +374,33 @@ install-manifest     # Install with security filtering
 - `PkgGuard: Clear Cache` - Clear all cached scores
 - `PkgGuard: Validate Current File` - Force re-scan current file
 
-## Recent Enhancements (Version 0.7.3)
+## Recent Enhancements
 
-### Node.js Built-in Module Support
-PkgGuard now properly detects and scores Node.js built-in modules with the `node:` prefix:
+### Version 0.7.4 - Enhanced Terminal Package Details
+Comprehensive terminal package analysis with parity to Hover UI:
+- **Enhanced Details Display**: Terminal now shows complete package information including deprecation warnings
+- **Trust Level Indicators**: Visual emoji indicators (🟢🟡🔴⚪❓) matching Hover UI
+- **Deprecation Warnings**: Full deprecation messages with replacement suggestions in terminal
+- **Comprehensive Evidence**: Registry status, downloads, release dates, maintainers, vulnerabilities
+- **Risk Factor Analysis**: Color-coded risk assessment with detailed explanations
+- **Actionable Recommendations**: Context-aware guidance based on trust level
+- **Complete Link Support**: Registry and GitHub repository links in terminal output
+
+### Version 0.7.3 - Node.js & Deprecation Support
+**Node.js Built-in Module Support**:
 - **Syntax**: `import * as path from "node:path"` 
 - **Detection**: Automatically strips `node:` prefix to identify built-in modules
 - **Scoring**: Built-in modules receive maximum trust score (100)
 - **Supported Modules**: All Node.js built-ins (fs, path, util, os, crypto, etc.)
 
-### Deprecated Package Detection
-PkgGuard now detects and warns about deprecated npm packages:
+**Deprecated Package Detection**:
 - **Detection**: Extracts deprecation info from npm registry metadata
 - **Score Impact**: -60 penalty (same severity as typosquatting)
-- **UI Display**: Shows deprecation warnings in hover tooltips
+- **UI Display**: Shows deprecation warnings in hover tooltips and terminal
 - **Replacement Suggestions**: Automatically extracts and displays replacement package recommendations
 - **Example**: `vsce` shows deprecation warning with suggestion to use `@vscode/vsce`
 
-### Terminal Autocomplete Enhancement
-Fixed terminal autocomplete to complete in-place instead of creating new lines:
+**Terminal Autocomplete Enhancement**:
 - **Issue Fixed**: Tab completion now replaces current line instead of creating new lines
 - **Technical Fix**: Preserves VT100 escape sequences (`\r\x1b[K`) for proper cursor control
 - **Result**: Professional terminal behavior matching standard shells

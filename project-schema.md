@@ -677,6 +677,60 @@ PkgGuard has been successfully migrated from CommonJS to ES modules for better p
 - Integration with other security tools
 - Custom UI themes and layouts
 
+## Version 0.7.4 Enhancements
+
+### Enhanced Terminal Package Details Display
+Comprehensive terminal package analysis with parity to Hover UI:
+
+**Enhanced Information Display**:
+- **Trust Level Indicators**: Visual emoji indicators (🟢🟡🔴⚪❓) matching Hover UI
+- **Deprecation Warnings**: Full deprecation messages with replacement suggestions
+- **Comprehensive Evidence**: Registry status, downloads, release dates, maintainers, vulnerabilities
+- **Risk Factor Analysis**: Color-coded risk assessment with detailed explanations
+- **Actionable Recommendations**: Context-aware guidance based on trust level
+- **Complete Link Support**: Registry and GitHub repository links
+
+**Technical Implementation**:
+- **Enhanced Method**: `showPackageDetails()` in `src/terminal/simple-terminal.ts`
+- **UI Parity**: Same information display as Hover UI (`src/ui/hovers.ts`)
+- **Color Coding**: ANSI escape sequences for terminal colors
+- **Error Handling**: Comprehensive error display with specific error details
+
+**Data Flow Enhancement**:
+```
+Terminal Security Check → Package Analysis → Enhanced Details Display
+├─ Trust Level Emoji (🟢🟡🔴⚪❓)
+├─ Deprecation Warning (if applicable)
+├─ Key Factors Section
+├─ Evidence Section
+│  ├─ Package existence
+│  ├─ Download statistics
+│  ├─ Release date
+│  ├─ Maintainer count
+│  └─ Vulnerability count
+├─ Risk Factors (color-coded)
+├─ Recommendation Section
+└─ Links (Registry + GitHub)
+```
+
+**Example Output**:
+```
+📦 vscode (javascript)
+   🔴 Trust Score: 5
+
+   ⚠️ DEPRECATED PACKAGE
+   This package is deprecated and no longer maintained.
+   💡 Recommended replacement: @vscode/vsce
+
+   🔍 Evidence:
+   ✅ Package exists on npm registry
+   📊 Downloads: 1,234,567 /week
+   📅 Last release: 2019-05-15
+   👥 Maintainers: 2
+   🔗 Registry: https://www.npmjs.com/package/vscode
+   📂 GitHub: https://github.com/Microsoft/vscode
+```
+
 ## Version 0.7.3 Enhancements
 
 ### Node.js Built-in Module Detection
@@ -693,7 +747,7 @@ Complete deprecation detection pipeline for npm packages:
 2. **npm Adapter** (`src/adapters/npm.ts`) → Extracts `deprecated` field and parses replacement suggestions
 3. **JavaScript Scoring** (`src/scoring/javascript.ts`) → Applies -60 penalty for deprecated packages
 4. **Hover UI** (`src/ui/hovers.ts`) → Displays deprecation warnings and replacement suggestions
-5. **Terminal** → Shows deprecation info during package installation
+5. **Terminal** → Shows deprecation info during package installation (Enhanced in v0.7.4)
 
 **Key Components**:
 - **Registry Info Interface**: Extended with `deprecated?` and `replacement?` fields
@@ -715,5 +769,5 @@ Fixed data flow issues in `src/extension.ts`:
 ---
 
 **Last Updated**: 2025-07-09
-**Version**: 0.7.3 (Current)
-**Architecture Review**: Production-Ready - Enhanced with Node.js support, deprecation detection, and terminal improvements
+**Version**: 0.7.4 (Current)
+**Architecture Review**: Production-Ready - Enhanced with comprehensive terminal package details display matching Hover UI

@@ -1752,27 +1752,210 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
           setCachedScore(pkg.ecosystem, pkg.name, score);
         }
 
+        // Package header with trust level emoji
+        const levelEmoji =
+          score.level === "high"
+            ? "🟢"
+            : score.level === "medium"
+              ? "🟡"
+              : score.level === "low"
+                ? "🔴"
+                : score.level === "ignored"
+                  ? "⚪"
+                  : "❓";
+
+        const scoreDisplay =
+          score.score === null
+            ? score.level === "unknown"
+              ? "Unknown"
+              : "Ignored"
+            : Number.isInteger(score.score)
+              ? score.score
+              : Math.round(score.score);
+
         this.writeEmitter.fire(
           `\r\n📦 \x1b[1m${pkg.name}\x1b[0m (${pkg.ecosystem})\r\n`,
         );
-        this.writeEmitter.fire(`   Trust Score: ${score.score ?? "N/A"}\r\n`);
+        this.writeEmitter.fire(
+          `${levelEmoji} Trust Score: ${scoreDisplay}\r\n`,
+        );
 
-        if (score.riskFactors) {
-          this.writeEmitter.fire("   \x1b[31mRisk Factors:\x1b[0m\r\n");
-          for (const risk of score.riskFactors) {
-            const emoji = risk.color === "red" ? "🔴" : "🟠";
-            this.writeEmitter.fire(`     ${emoji} ${risk.text}\r\n`);
+        // Show deprecation warning if package is deprecated
+        if (score.deprecated) {
+          this.writeEmitter.fire(
+            "\r\n\x1b[33m⚠️  DEPRECATED PACKAGE\x1b[0m\r\n",
+          );
+          this.writeEmitter.fire(`${score.deprecated}\r\n`);
+
+          if (score.replacement) {
+            this.writeEmitter.fire(
+              `\x1b[32m💡 Recommended replacement: ${score.replacement}\x1b[0m\r\n`,
+            );
           }
         }
 
-        if (score.evidence?.registryUrl) {
+        // If ignored, show ignore message and note
+        if (score.level === "ignored") {
+          if (score.scoreReasons && score.scoreReasons.length > 0) {
+            this.writeEmitter.fire("\r\n\x1b[33mIgnore Reasons:\x1b[0m\r\n");
+            for (const reason of score.scoreReasons) {
+              this.writeEmitter.fire(`   - ${reason}\r\n`);
+            }
+          }
+          continue;
+        }
+
+        // If unknown, show unknown message and issues
+        if (score.level === "unknown") {
+          if (score.scoreReasons && score.scoreReasons.length > 0) {
+            this.writeEmitter.fire("\r\n\x1b[33mIssues:\x1b[0m\r\n");
+            for (const reason of score.scoreReasons) {
+              this.writeEmitter.fire(`   - ${reason}\r\n`);
+            }
+          }
+          if (score.riskFactors && score.riskFactors.length > 0) {
+            this.writeEmitter.fire("\r\n\x1b[31mIssues:\x1b[0m\r\n");
+            for (const risk of score.riskFactors) {
+              const emoji = risk.color === "red" ? "🔴" : "🟠";
+              this.writeEmitter.fire(`   ${emoji} ${risk.text}\r\n`);
+            }
+          }
+          // Still show registry link if available
+          if (score.evidence?.registryUrl) {
+            const registryUrl = score.evidence.registryUrl;
+            const isPyPI = registryUrl.includes("pypi.org");
+            const isPythonDocs = registryUrl.includes("docs.python.org");
+            const linkText = isPythonDocs
+              ? "Python Docs"
+              : isPyPI
+                ? "PyPI"
+                : "npm";
+            this.writeEmitter.fire(
+              `\r\n🔗 View on ${linkText}: ${registryUrl}\r\n`,
+            );
+          }
+          continue;
+        }
+
+        // Key Factors (always show for JS and Python)
+        if (score.scoreReasons && score.scoreReasons.length > 0) {
+          this.writeEmitter.fire("\r\n\x1b[32mKey Factors:\x1b[0m\r\n");
+          for (const reason of score.scoreReasons) {
+            this.writeEmitter.fire(`   - ${reason}\r\n`);
+          }
+        }
+
+        // Risk Factors (merged, colored)
+        if (score.riskFactors && score.riskFactors.length > 0) {
+          this.writeEmitter.fire("\r\n\x1b[31mRisk Factors:\x1b[0m\r\n");
+          for (const risk of score.riskFactors) {
+            const emoji = risk.color === "red" ? "🔴" : "🟠";
+            this.writeEmitter.fire(`   ${emoji} ${risk.text}\r\n`);
+          }
+        }
+
+        // Evidence section
+        this.writeEmitter.fire("\r\n\x1b[36mEvidence:\x1b[0m\r\n");
+        this.writeEmitter.fire(
+          `   ${score.evidence.exists ? "✅" : "❌"} Package exists on registry\r\n`,
+        );
+
+        // Download data: show period based on ecosystem
+        if (score.evidence.downloads > 0) {
+          const downloadPeriod =
+            score.ecosystem === "javascript" ? "/Week" : "/Month";
           this.writeEmitter.fire(
-            `   🔗 Registry: ${score.evidence.registryUrl}\r\n`,
+            `   📦 Downloads: ${score.evidence.downloads.toLocaleString()}${downloadPeriod}\r\n`,
+          );
+        } else if (score.topDownloads && score.topDownloads > 0) {
+          this.writeEmitter.fire(
+            `   📦 Downloads (top PyPI): ${score.topDownloads.toLocaleString()} total\r\n`,
+          );
+        } else {
+          this.writeEmitter.fire(`   📦 Download data not available\r\n`);
+        }
+
+        // Release date: show as dd-mm-yyyy if available
+        if (score.releaseDate) {
+          this.writeEmitter.fire(
+            `   ⏰ Release date: ${score.releaseDate}\r\n`,
+          );
+        } else {
+          this.writeEmitter.fire(`   ⏰ Release date: N/A\r\n`);
+        }
+
+        // Maintainers: show actual count if available
+        let maintCount: number | undefined;
+        if (score.evidence.maintainerCount) {
+          maintCount = score.evidence.maintainerCount;
+        }
+
+        if (typeof maintCount === "number" && maintCount > 1) {
+          this.writeEmitter.fire(`   👥 Maintainers: ${maintCount}\r\n`);
+        } else if (typeof maintCount === "number" && maintCount === 1) {
+          this.writeEmitter.fire(`   👥 Maintainers: Single\r\n`);
+        } else if (score.evidence.multipleMaintainers) {
+          this.writeEmitter.fire(`   👥 Maintainers: Multiple\r\n`);
+        } else {
+          this.writeEmitter.fire(`   👥 Maintainers: Single\r\n`);
+        }
+
+        if (score.evidence.vulnerabilities > 0) {
+          this.writeEmitter.fire(
+            `   ⚠️  High severity vulnerabilities: ${score.evidence.vulnerabilities}\r\n`,
           );
         }
-      } catch {
+
+        // Recommendations/Summary based on trust level
+        this.writeEmitter.fire("\r\n\x1b[33mRecommendation:\x1b[0m\r\n");
+        if (score.level === "high") {
+          this.writeEmitter.fire(
+            "   This is a widely trusted and established package.\r\n",
+          );
+        } else if (score.level === "medium") {
+          if (score.riskFactors && score.riskFactors.length > 0) {
+            this.writeEmitter.fire(
+              "   This package has some risk factors. Please review the details before using.\r\n",
+            );
+          } else {
+            this.writeEmitter.fire(
+              "   This package is not extremely popular or well-established, but no specific risks were detected.\r\n",
+            );
+          }
+        } else {
+          if (score.riskFactors && score.riskFactors.length > 0) {
+            this.writeEmitter.fire(
+              "   This package is considered risky. Manual review and caution are strongly advised.\r\n",
+            );
+          } else {
+            this.writeEmitter.fire(
+              "   This package is not widely trusted or established, but no specific risks were detected.\r\n",
+            );
+          }
+        }
+
+        // Add registry link (only if present in evidence)
+        if (score.evidence?.registryUrl) {
+          const registryUrl = score.evidence.registryUrl;
+          const isPyPI = registryUrl.includes("pypi.org");
+          const isPythonDocs = registryUrl.includes("docs.python.org");
+          const linkText = isPythonDocs
+            ? "Python Docs"
+            : isPyPI
+              ? "PyPI"
+              : "npm";
+          this.writeEmitter.fire(
+            `\r\n🔗 View on ${linkText}: ${registryUrl}\r\n`,
+          );
+        }
+
+        // Add GitHub link (if present)
+        if (score.githubRepo) {
+          this.writeEmitter.fire(`🐙 GitHub: ${score.githubRepo}\r\n`);
+        }
+      } catch (error) {
         this.writeEmitter.fire(
-          `   ❌ Error getting details for ${pkg.name}\r\n`,
+          `   ❌ Error getting details for ${pkg.name}: ${error}\r\n`,
         );
       }
     }

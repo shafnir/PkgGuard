@@ -287,6 +287,34 @@ Security enhancements and vulnerability fixes
 
 ## Completed Tasks
 
+### 2025-07-09 (Version 0.7.4 - Enhanced Terminal Package Details Display)
+- ✅ **Enhanced Terminal Package Details Display** (🔧 Core Features, 🎨 UI/UX)
+  - **Status**: Completed
+  - **Description**: Comprehensive terminal package analysis with parity to Hover UI display
+  - **Completion Date**: 2025-07-09
+  - **Components Delivered**:
+    - **Enhanced Details Display**: Terminal now shows complete package information including deprecation warnings
+    - **Trust Level Indicators**: Visual emoji indicators (🟢🟡🔴⚪❓) matching Hover UI
+    - **Deprecation Warnings**: Full deprecation messages with replacement suggestions in terminal
+    - **Comprehensive Evidence**: Registry status, downloads, release dates, maintainers, vulnerabilities
+    - **Risk Factor Analysis**: Color-coded risk assessment with detailed explanations
+    - **Actionable Recommendations**: Context-aware guidance based on trust level
+    - **Complete Link Support**: Registry and GitHub repository links in terminal output
+    - **Testing Strategy**: Comprehensive test suite and manual testing scenarios
+  - **Technical Details**:
+    - Enhanced `showPackageDetails()` method in `src/terminal/simple-terminal.ts`
+    - Added trust level emoji display matching Hover UI format
+    - Implemented deprecation warning display with replacement suggestions
+    - Added comprehensive evidence section with all package metadata
+    - Created risk factor analysis with color-coded terminal output
+    - Implemented context-aware recommendations based on trust level
+    - Added complete link support for registry and GitHub URLs
+    - Created automated test suite (`terminal-package-details.test.ts`)
+    - Documented testing scenarios and validation procedures
+  - **Example**: `vsce` package now shows full deprecation info in terminal details with `@vscode/vsce` suggestion
+  - **Impact**: Terminal provides same comprehensive information as Hover UI, improving user decision-making
+  - **Files Modified**: `src/terminal/simple-terminal.ts`, test files, documentation
+
 ### 2025-07-09 (Version 0.7.3 - Node.js Support & Deprecation Detection)
 - ✅ **Node.js Built-in Module Detection** (🔧 Core Features)
   - **Status**: Completed
@@ -679,20 +707,27 @@ Build Success:       100% ✅
 
 ### Latest Update
 - **Date**: 2025-07-09
-- **Activity**: Version 0.7.3 - Node.js Support, Deprecation Detection, Terminal Enhancements
+- **Activity**: Version 0.7.4 - Enhanced Terminal Package Details Display
 - **Major Achievements**: 
-  - ✅ **Node.js Built-in Detection**: Fixed `import * as path from "node:path"` syntax support
-  - ✅ **npm Deprecation Detection**: Complete system with -60 penalty and replacement suggestions
-  - ✅ **Terminal Autocomplete Fix**: Fixed in-place completion (no more new lines)
-  - ✅ **Critical Data Flow Fix**: Updated type guards and default values for deprecation fields
-  - ✅ **Documentation Updates**: Updated all project docs for v0.7.3 features
+  - ✅ **Terminal Package Details Enhancement**: Comprehensive terminal package analysis with parity to Hover UI
+  - ✅ **Deprecation Warnings in Terminal**: Full deprecation messages with replacement suggestions now show in terminal details
+  - ✅ **Trust Level Indicators**: Visual emoji indicators (🟢🟡🔴⚪❓) matching Hover UI display
+  - ✅ **Comprehensive Evidence Display**: Registry status, downloads, release dates, maintainers, vulnerabilities
+  - ✅ **Risk Factor Analysis**: Color-coded risk assessment with detailed explanations
+  - ✅ **Actionable Recommendations**: Context-aware guidance based on trust level
+  - ✅ **Complete Link Support**: Registry and GitHub repository links in terminal output
+  - ✅ **Testing Strategy**: Comprehensive test suite and manual testing scenarios
 - **Technical Implementation**:
-  - Added `normalizePackageName()` in JavaScript detector for `node:` prefix
-  - Extended npm adapter with deprecation extraction and pattern matching
-  - Fixed `fixOutputForPseudoterminal()` to preserve VT100 escape sequences
-  - Fixed `isRegistryInfo()` and `createDefaultRegistryInfo()` for deprecation support
-- **Current Status**: Version 0.7.3 complete with all enhancements working correctly
-- **Next Steps**: Extension packaged and ready for release
+  - Enhanced `showPackageDetails()` method in `src/terminal/simple-terminal.ts`
+  - Added trust level emoji display matching Hover UI
+  - Implemented deprecation warning display with replacement suggestions
+  - Added comprehensive evidence section with all package metadata
+  - Created risk factor analysis with color-coded terminal output
+  - Implemented context-aware recommendations based on trust level
+  - Added complete link support for registry and GitHub URLs
+  - Created automated test suite and manual testing documentation
+- **Current Status**: Version 0.7.4 complete - Terminal now shows same information as Hover UI
+- **Next Steps**: Extension ready for testing and release
 
 ## Notes
 

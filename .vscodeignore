@@ -60,8 +60,37 @@ docs/TERMINAL_INTEGRATION.md
 
 # Test files
 test-*
+**/terminal-package-details*.test.ts
+**/terminal-package-details*.test.js
+scripts/test-terminal-details.cjs
 CLAUDE.md
 python-stdlib-update.md
+TERMINAL.md
+
+# Testing documentation and temporary files
+docs/TERMINAL_TESTING_*.md
+*.tmp
+*.bak
+*.temp
+terminal-test-*
+
+# Development artifacts
+*.debug
+*.draft
+debug-*
+draft-*
+scratch-*
+temp-*
+mock-*
+sample-*
+
+# VS Code workspace files
+*.code-workspace
+
+# Build artifacts
+*.tsbuildinfo
+.tsbuildinfo
+*.d.ts.map
 
 # Claude internal files
 .bash_history
