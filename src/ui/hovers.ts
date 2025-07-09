@@ -92,7 +92,14 @@ export class TrustHoverProvider implements vscode.HoverProvider {
     }
 
     const packageName = document.getText(wordRange);
-    const score = this.scores.get(packageName);
+    let score = this.scores.get(packageName);
+    
+    // If not found and contains dots, try base package name
+    if (!score && packageName.includes('.')) {
+      const basePackage = packageName.split('.')[0];
+      score = this.scores.get(basePackage);
+    }
+    
     if (!score) {
       return null;
     }

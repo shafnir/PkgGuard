@@ -149,7 +149,7 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
     const venvStatus = this.getVenvStatus();
     // Show venv status, security mode and full path like PowerShell
     this.safeWriteEmitter(
-      `${venvStatus}${securityMode}\x1b[36m${cwd}>\x1b[0m  `,
+      `${venvStatus}${securityMode}\x1b[36m${cwd}> \x1b[0m`,
     );
   }
 
@@ -587,13 +587,16 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
   }
 
   private replaceCurrentInput(newInput: string): void {
-    // Clear the current line back to the prompt
-    this.safeWriteEmitter("\r\x1b[K"); // Clear current line
-    this.showPrompt();
-
-    // Write the new input and update our internal state
+    // Get current prompt info for proper spacing
+    const cwd = this.workspaceFolder?.uri.fsPath || process.cwd();
+    const securityMode = this.getSecurityModeDisplay();
+    const venvStatus = this.getVenvStatus();
+    
+    // Clear from start of line and rewrite prompt + new input
+    this.safeWriteEmitter(`\r\x1b[K${venvStatus}${securityMode}\x1b[36m${cwd}> \x1b[0m${newInput}`);
+    
+    // Update internal state
     this.currentInput = newInput;
-    this.safeWriteEmitter(newInput);
   }
 
   private navigateHistory(direction: number): void {

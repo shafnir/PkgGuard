@@ -2,6 +2,19 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Table of Contents
+
+1. [Project Overview](#project-overview)
+2. [Common Development Commands](#common-development-commands)
+3. [Enhanced Terminal Features](#enhanced-terminal-features)
+4. [Architecture Overview](#architecture-overview)
+5. [Configuration](#configuration)
+6. [Implementation Details](#implementation-details)
+7. [Testing](#testing)
+8. [Code Standards](#code-standards)
+9. [Security & Dependencies](#security--dependencies)
+10. [Task Management System](#task-management-system)
+
 ## Project Overview
 
 PkgGuard is a VS Code extension that protects developers from AI hallucinations and malicious package imports by analyzing package trustworthiness in real-time. It supports Python (PyPI) and JavaScript/TypeScript (npm) ecosystems.
@@ -22,6 +35,8 @@ PkgGuard is a VS Code extension that protects developers from AI hallucinations 
 ### VS Code Extension Development
 - Press F5 in VS Code to launch Extension Development Host for debugging
 - Use `npm run package` to create installable .vsix file
+- Always use context7 mcp to research for new packages and features. If you can't find what you looking for in context7, use the internet.
+- The development was migrated from CommonJS to ES6 modules, with backward compatibility. So every future development should be in modern ES6 modules.
 
 ## Enhanced Terminal Features (Version 0.7.0)
 
@@ -155,14 +170,7 @@ npm install                      # With security filtering
 4. Trust scores calculated using weighted scoring algorithm
 5. UI updated with decorations, hover data, and diagnostic warnings
 
-### Storage and Caching
-
-- **Cache Location**: `.pkgguard/.pkgguard-cache.json` (workspace-specific)
-- **Ignore File**: `.pkgguard/.pkgguard-ignore` with format `package_name # note`
-- **Global Storage**: Used when no workspace is open
-- **TTL**: 48 hours default (configurable via `pkgGuard.cacheTTL`)
-
-## Key Configuration
+## Configuration
 
 ### VS Code Settings
 - `pkgGuard.enabled` - Enable/disable extension
@@ -181,7 +189,13 @@ npm install                      # With security filtering
 ### Terminal Profile
 - **PkgGuard Smart Terminal** - Available in VS Code terminal dropdown alongside PowerShell, Git Bash, etc.
 
-## Important Implementation Details
+### Storage and Caching
+- **Cache Location**: `.pkgguard/.pkgguard-cache.json` (workspace-specific)
+- **Ignore File**: `.pkgguard/.pkgguard-ignore` with format `package_name # note`
+- **Global Storage**: Used when no workspace is open
+- **TTL**: 48 hours default (configurable via `pkgGuard.cacheTTL`)
+
+## Implementation Details
 
 ### Trust Scoring Algorithm
 - **High Trust (🟢)**: Score ≥ 80 (Python) / ≥ 75 (JavaScript)
@@ -243,9 +257,9 @@ The extension includes comprehensive terminal functionality (`src/terminal/`):
 - No telemetry - all processing happens locally
 - JSDoc comments for public methods
 
-## Security-First Dependency Management
+## Security & Dependencies
 
-### Core Principle
+### Core Security Principle
 **Always check for latest package versions through the web from official sources before implementing new packages.** This verification step ensures security and authenticity before adding dependencies to the project.
 
 ### Official Sources for Verification
@@ -281,6 +295,32 @@ The extension includes comprehensive terminal functionality (`src/terminal/`):
 - **Regularly audit dependencies for security issues**
 
 This approach aligns with PkgGuard's mission of protecting against malicious packages by applying the same security standards to our own development process.
+
+## Quick Reference
+
+### Common Commands
+```bash
+# Development
+npm run compile        # TypeScript compilation
+npm run watch         # Watch mode development
+npm run package       # Build .vsix extension
+npm run lint          # ESLint code quality checks
+npm run test          # Run Jest unit tests
+
+# Terminal Commands
+create-venv [name]    # Create virtual environment
+activate-venv [name]  # Activate virtual environment
+deactivate-venv       # Deactivate current environment
+list-venvs           # List available environments
+scan-manifest        # Scan requirements.txt/package.json
+install-manifest     # Install with security filtering
+```
+
+### VS Code Commands
+- `PkgGuard: Create Terminal` - Create PkgGuard smart terminal
+- `PkgGuard: Toggle Security Mode` - Cycle security modes
+- `PkgGuard: Clear Cache` - Clear all cached scores
+- `PkgGuard: Validate Current File` - Force re-scan current file
 
 ## Task Management System
 
