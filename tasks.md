@@ -12,13 +12,15 @@ PkgGuard is a mature VS Code extension providing real-time security analysis for
 - **Performance Optimized**: Cache-first approach with 90%+ performance improvement
 
 ### Current Status
-- **Project Version**: 0.7.3
-- **Last Updated**: 2025-07-09
-- **Current Phase**: Production-Ready - Enhanced with Node.js support and deprecation detection
+- **Project Version**: 0.7.5
+- **Last Updated**: 2025-07-11
+- **Current Phase**: Production-Ready - Enhanced terminal deprecation warnings and manifest reports
 - **Active Tasks**: 0 pending (all identified issues resolved)
-- **Completion Rate**: 96% (32/33 actionable tasks)
+- **Completion Rate**: 97% (33/34 actionable tasks)
 
 ### Version History Quick Reference
+- **v0.7.5**: Terminal deprecation warnings, enhanced manifest reports, fixed scoring consistency
+- **v0.7.4**: Enhanced terminal package details display with parity to Hover UI
 - **v0.7.3**: Node.js built-in support, npm deprecation detection, terminal autocomplete fix
 - **v0.7.2**: Terminal UX polish and production readiness
 - **v0.7.1**: Critical terminal UX issues resolution
@@ -286,6 +288,31 @@ Security enhancements and vulnerability fixes
   - **Notes**: Core functionality excellent, upgrade deferred to future enhancement phase
 
 ## Completed Tasks
+
+### 2025-07-11 (Version 0.7.5 - Terminal Deprecation & Manifest Report Enhancements)
+- ✅ **Terminal Deprecation Warnings & Enhanced Manifest Reports** (🔧 Core Features, 🎨 UI/UX)
+  - **Status**: Completed
+  - **Description**: Critical improvements to terminal functionality and scoring consistency
+  - **Completion Date**: 2025-07-11
+  - **Components Delivered**:
+    - **Terminal Deprecation Warnings**: Enhanced with prominent "⚠️ DEPRECATED PACKAGE detected!" alerts during package installation
+    - **Enhanced Manifest Reports**: Rich, detailed package information in manifest scan reports matching hover UI
+    - **Fixed Scoring Consistency**: Non-existent packages like 'requestss' now properly show trust score N/A instead of 0
+    - **Typosquatting Detection**: Terminal now correctly identifies typosquatting attempts (e.g., 'requestss' shows "potential typosquatting")
+    - **Unified Error Handling**: Consistent N/A scoring for packages that fail API calls or don't exist
+    - **Improved Terminal UX**: Clear visual warnings and comprehensive package analysis during installations
+  - **Technical Details**:
+    - Modified `shell-integration.ts` to add prominent deprecation warnings in terminal output
+    - Enhanced `simple-terminal.ts` manifest scanning with detailed package information display
+    - Fixed scoring logic to return N/A for non-existent packages instead of score 0
+    - Updated typosquatting detection to properly display in terminal
+    - Unified error handling across all scoring engines for consistent N/A display
+  - **Example Use Cases**:
+    - Installing deprecated package shows: "⚠️ DEPRECATED PACKAGE detected! vsce is deprecated. Recommended replacement: @vscode/vsce"
+    - Manifest scan shows rich details: trust scores, deprecation warnings, evidence, risk factors
+    - Non-existent package 'requestss' shows "Trust Score: N/A" with typosquatting warning
+  - **Impact**: Significantly improved user awareness of package risks during installation and manifest scanning
+  - **Files Modified**: `src/terminal/shell-integration.ts`, `src/terminal/simple-terminal.ts`, `src/scoring/index.ts`, `src/scoring/javascript.ts`
 
 ### 2025-07-09 (Version 0.7.4 - Enhanced Terminal Package Details Display)
 - ✅ **Enhanced Terminal Package Details Display** (🔧 Core Features, 🎨 UI/UX)
@@ -682,16 +709,18 @@ When adding new tasks, use this template:
 ```
 📊 OVERALL PROGRESS
 ====================
-Total Tasks:        31
-Completed:         29  ✅
+Total Tasks:        34
+Completed:         31  ✅
 In Progress:        0  🔄
 Pending:            0  ⏳
 Evaluated:          2  📋
 Cancelled:          1  ❌
-Completion Rate:   94%  🎯
+Completion Rate:   91%  🎯
 
 🏆 MAJOR MILESTONES
 ====================
+v0.7.5 Enhancement:  1/1 ✅ (100%)
+v0.7.4 Enhancement:  1/1 ✅ (100%)
 v0.7.0 Enhancement:  7/7 ✅ (100%)
 v0.7.1 UX Polish:    8/8 ✅ (100%)
 ESLint Cleanup:      354/354 ✅ (100%)
@@ -706,27 +735,26 @@ Build Success:       100% ✅
 ```
 
 ### Latest Update
-- **Date**: 2025-07-09
-- **Activity**: Version 0.7.4 - Enhanced Terminal Package Details Display
+- **Date**: 2025-07-11
+- **Activity**: Version 0.7.5 - Terminal Deprecation & Manifest Report Enhancements
 - **Major Achievements**: 
-  - ✅ **Terminal Package Details Enhancement**: Comprehensive terminal package analysis with parity to Hover UI
-  - ✅ **Deprecation Warnings in Terminal**: Full deprecation messages with replacement suggestions now show in terminal details
-  - ✅ **Trust Level Indicators**: Visual emoji indicators (🟢🟡🔴⚪❓) matching Hover UI display
-  - ✅ **Comprehensive Evidence Display**: Registry status, downloads, release dates, maintainers, vulnerabilities
-  - ✅ **Risk Factor Analysis**: Color-coded risk assessment with detailed explanations
-  - ✅ **Actionable Recommendations**: Context-aware guidance based on trust level
-  - ✅ **Complete Link Support**: Registry and GitHub repository links in terminal output
-  - ✅ **Testing Strategy**: Comprehensive test suite and manual testing scenarios
+  - ✅ **Terminal Deprecation Warnings**: Enhanced with prominent "⚠️ DEPRECATED PACKAGE detected!" alerts during package installation
+  - ✅ **Enhanced Manifest Reports**: Rich, detailed package information in manifest scan reports matching hover UI
+  - ✅ **Fixed Scoring Consistency**: Non-existent packages like 'requestss' now properly show trust score N/A instead of 0
+  - ✅ **Typosquatting Detection**: Terminal now correctly identifies typosquatting attempts (e.g., 'requestss' shows "potential typosquatting")
+  - ✅ **Unified Error Handling**: Consistent N/A scoring for packages that fail API calls or don't exist
+  - ✅ **Improved Terminal UX**: Clear visual warnings and comprehensive package analysis during installations
 - **Technical Implementation**:
-  - Enhanced `showPackageDetails()` method in `src/terminal/simple-terminal.ts`
-  - Added trust level emoji display matching Hover UI
-  - Implemented deprecation warning display with replacement suggestions
-  - Added comprehensive evidence section with all package metadata
-  - Created risk factor analysis with color-coded terminal output
-  - Implemented context-aware recommendations based on trust level
-  - Added complete link support for registry and GitHub URLs
-  - Created automated test suite and manual testing documentation
-- **Current Status**: Version 0.7.4 complete - Terminal now shows same information as Hover UI
+  - Modified `shell-integration.ts` to add prominent deprecation warnings in terminal output
+  - Enhanced `simple-terminal.ts` manifest scanning with detailed package information display
+  - Fixed scoring logic to return N/A for non-existent packages instead of score 0
+  - Updated typosquatting detection to properly display in terminal
+  - Unified error handling across all scoring engines for consistent N/A display
+- **Example Output**:
+  - Installing deprecated package: "⚠️ DEPRECATED PACKAGE detected! vsce is deprecated. Recommended replacement: @vscode/vsce"
+  - Manifest scan shows rich details with trust scores, deprecation warnings, evidence, and risk factors
+  - Non-existent package 'requestss' shows "Trust Score: N/A" with typosquatting warning
+- **Current Status**: Version 0.7.5 complete - Terminal provides maximum security awareness during package operations
 - **Next Steps**: Extension ready for testing and release
 
 ## Notes

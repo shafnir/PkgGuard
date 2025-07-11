@@ -376,6 +376,15 @@ install-manifest     # Install with security filtering
 
 ## Recent Enhancements
 
+### Version 0.7.5 - Terminal Deprecation & Manifest Report Enhancements
+Critical improvements to terminal functionality and scoring consistency:
+- **Terminal Deprecation Warnings**: Enhanced with prominent "⚠️ DEPRECATED PACKAGE detected!" alerts during package installation
+- **Enhanced Manifest Reports**: Rich, detailed package information in manifest scan reports matching hover UI
+- **Fixed Scoring Consistency**: Non-existent packages like 'requestss' now properly show trust score N/A instead of 0
+- **Typosquatting Detection**: Terminal now correctly identifies typosquatting attempts (e.g., 'requestss' shows "potential typosquatting")
+- **Unified Error Handling**: Consistent N/A scoring for packages that fail API calls or don't exist
+- **Improved Terminal UX**: Clear visual warnings and comprehensive package analysis during installations
+
 ### Version 0.7.4 - Enhanced Terminal Package Details
 Comprehensive terminal package analysis with parity to Hover UI:
 - **Enhanced Details Display**: Terminal now shows complete package information including deprecation warnings

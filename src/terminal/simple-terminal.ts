@@ -2812,8 +2812,32 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
               score = cachedScore;
             } else {
               // Not cached, fetch and score
-              const meta = await adapter.meta(pkgName);
-              score = await scoring.calculateScore(pkgName, meta);
+              try {
+                const meta = await adapter.meta(pkgName);
+                score = await scoring.calculateScore(pkgName, meta);
+              } catch {
+                // Handle network/API errors - create unknown trust score like extension.ts
+                score = {
+                  packageName: pkgName,
+                  score: null,
+                  level: "unknown",
+                  ecosystem: ecosystem,
+                  evidence: {
+                    exists: false,
+                    downloads: 0,
+                    releaseAge: 0,
+                    multipleMaintainers: false,
+                    vulnerabilities: 0,
+                    registryUrl:
+                      ecosystem === "python"
+                        ? `https://pypi.org/project/${pkgName}`
+                        : `https://www.npmjs.com/package/${pkgName}`,
+                  },
+                  scoreReasons: [
+                    "Failed to analyze package (network/API error)",
+                  ],
+                };
+              }
 
               // Cache the result
               setCachedScore(ecosystem, pkgName, score);
@@ -2831,7 +2855,16 @@ export class SimplePkgGuardTerminal implements vscode.Pseudoterminal {
                     : score.level === "ignored"
                       ? "⚪"
                       : "❓";
-            report += `${levelEmoji} Trust Score: ${score.score || "N/A"}\n`;
+            // Use same score display logic as hover UI
+            const scoreDisplay =
+              score.score === null
+                ? score.level === "unknown"
+                  ? "Unknown"
+                  : "Ignored"
+                : Number.isInteger(score.score)
+                  ? score.score
+                  : Math.round(score.score);
+            report += `${levelEmoji} Trust Score: ${scoreDisplay}\n`;
 
             // Show deprecation warning if applicable
             if (score.deprecated) {

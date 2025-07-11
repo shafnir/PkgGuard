@@ -598,7 +598,31 @@ PkgGuard has been successfully migrated from CommonJS to ES modules for better p
 
 ## Current Status & Recent Achievements
 
-### Version 0.7.2 - Production Ready (Current)
+### Version 0.7.5 - Enhanced Terminal Warnings (Current)
+**Terminal Deprecation & Manifest Report Enhancements**:
+- ✅ **Terminal Deprecation Warnings**: Prominent "⚠️ DEPRECATED PACKAGE detected!" alerts during installation
+- ✅ **Enhanced Manifest Reports**: Rich package details in manifest scans matching hover UI
+- ✅ **Fixed Scoring Consistency**: Non-existent packages show "N/A" instead of score 0
+- ✅ **Typosquatting Detection**: Terminal properly identifies and warns about typosquatting attempts
+- ✅ **Unified Error Handling**: Consistent N/A scoring across all failure scenarios
+- ✅ **Improved Terminal UX**: Maximum security awareness during package operations
+
+### Version 0.7.4 - Enhanced Terminal Package Details
+**Comprehensive terminal package analysis with parity to Hover UI**:
+- ✅ **Enhanced Details Display**: Complete package information including deprecation warnings
+- ✅ **Trust Level Indicators**: Visual emoji indicators matching Hover UI
+- ✅ **Comprehensive Evidence**: Registry status, downloads, release dates, maintainers
+- ✅ **Risk Factor Analysis**: Color-coded risk assessment with detailed explanations
+- ✅ **Complete Link Support**: Registry and GitHub repository links in terminal
+
+### Version 0.7.3 - Node.js & Deprecation Support
+**Node.js built-in modules and npm deprecation detection**:
+- ✅ **Node.js Built-in Support**: Proper handling of `node:` prefix imports
+- ✅ **Deprecation Detection**: Complete pipeline from npm registry to UI
+- ✅ **Terminal Autocomplete Fix**: In-place completion without new lines
+- ✅ **Critical Bug Fixes**: Fixed type guards for deprecation data flow
+
+### Version 0.7.2 - Production Ready
 **All identified issues have been resolved**:
 - ✅ **HTTP Client Module Hover Display**: Fixed dotted module hover with base package fallback logic
 - ✅ **Terminal Prompt Spacing**: Corrected final spacing issue with proper `[mode] path> ` format  
@@ -676,6 +700,52 @@ PkgGuard has been successfully migrated from CommonJS to ES modules for better p
 - Additional security checks
 - Integration with other security tools
 - Custom UI themes and layouts
+
+## Version 0.7.5 Enhancements
+
+### Terminal Deprecation Warnings & Manifest Report Enhancements
+Critical improvements to terminal functionality and scoring consistency:
+
+**Enhanced Terminal Warnings**:
+- **Deprecation Alerts**: Prominent "⚠️ DEPRECATED PACKAGE detected!" warnings during package installation
+- **Shell Integration**: Modified `shell-integration.ts` to display deprecation warnings immediately after package analysis
+- **Visual Impact**: Clear, unmissable warnings that appear before installation proceeds
+
+**Enhanced Manifest Reports**:
+- **Rich Package Details**: Manifest scan reports now show comprehensive package information matching hover UI
+- **Trust Score Display**: Each package shows trust level with emoji indicators (🟢🟡🔴⚪❓)
+- **Deprecation Information**: Full deprecation messages with replacement suggestions in manifest scans
+- **Evidence Section**: Downloads, release dates, maintainers, vulnerabilities for each package
+- **Risk Analysis**: Color-coded risk factors with detailed explanations
+
+**Fixed Scoring Consistency**:
+- **N/A Scoring**: Non-existent packages now properly show "Trust Score: N/A" instead of score 0
+- **Typosquatting Detection**: Terminal correctly identifies and warns about potential typosquatting
+- **Error Handling**: Unified error handling ensures consistent N/A display for failed API calls
+- **Example**: Package 'requestss' shows "N/A" with "potential typosquatting of 'requests'" warning
+
+**Technical Implementation**:
+```typescript
+// Shell Integration Enhancement
+if (score.evidence.deprecated) {
+    terminal.writeLine(`\n⚠️ DEPRECATED PACKAGE detected!`);
+    terminal.writeLine(`${packageName} is deprecated. ${score.evidence.replacement ? 
+        `Recommended replacement: ${score.evidence.replacement}` : 
+        'Consider using an alternative package.'}`);
+}
+
+// Scoring Logic Fix
+if (!registryInfo || !registryInfo.exists) {
+    return { 
+        score: 'N/A', 
+        level: 'unknown',
+        evidence: { 
+            ...evidence, 
+            registryStatus: 'Package does not exist on registry' 
+        }
+    };
+}
+```
 
 ## Version 0.7.4 Enhancements
 
@@ -768,6 +838,6 @@ Fixed data flow issues in `src/extension.ts`:
 
 ---
 
-**Last Updated**: 2025-07-09
-**Version**: 0.7.4 (Current)
-**Architecture Review**: Production-Ready - Enhanced with comprehensive terminal package details display matching Hover UI
+**Last Updated**: 2025-07-11
+**Version**: 0.7.5 (Current)
+**Architecture Review**: Production-Ready - Enhanced terminal deprecation warnings and manifest reports with fixed scoring consistency
