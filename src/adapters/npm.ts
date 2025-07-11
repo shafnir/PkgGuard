@@ -11,6 +11,7 @@ interface NpmVersion {
   version: string;
   maintainers?: NpmUser[];
   contributors?: NpmUser[];
+  deprecated?: string;
 }
 
 interface NpmPackageData {
@@ -61,6 +62,8 @@ export class NpmAdapter implements RegistryAdapter {
           latestRelease: 0,
           maintainerCount: 0,
           highVulnCount: 0,
+          deprecated: undefined,
+          replacement: undefined,
         };
       }
     } else if (response.status === 404) {
@@ -70,6 +73,8 @@ export class NpmAdapter implements RegistryAdapter {
         latestRelease: 0,
         maintainerCount: 0,
         highVulnCount: 0,
+        deprecated: undefined,
+        replacement: undefined,
       };
     }
     if (!response.ok) {
@@ -84,11 +89,35 @@ export class NpmAdapter implements RegistryAdapter {
     if (data.time && latestVersion && data.time[latestVersion]) {
       latestRelease = new Date(data.time[latestVersion]).getTime();
     }
-    // Get maintainers and contributors from the latest version
+    // Get maintainers, contributors, and deprecation info from the latest version
     let maintainerCount = 0;
     const uniqueMaintainers = new Set<string>();
+    let deprecated: string | undefined = undefined;
+    let replacement: string | undefined = undefined;
+
     if (latestVersion && data.versions?.[latestVersion]) {
       const versionData = data.versions[latestVersion];
+
+      // Extract deprecation information
+      if (versionData.deprecated) {
+        deprecated = versionData.deprecated;
+
+        // Try to extract replacement package from deprecation message
+        const replacementPatterns = [
+          /(?:renamed to|use|install using)\s+(@?[a-zA-Z0-9-_/.]+)/i,
+          /(?:moved to|replaced by|superseded by)\s+(@?[a-zA-Z0-9-_/.]+)/i,
+          /(?:please use|migrate to|switch to)\s+(@?[a-zA-Z0-9-_/.]+)/i,
+        ];
+
+        for (const pattern of replacementPatterns) {
+          const match = deprecated.match(pattern);
+          if (match) {
+            replacement = match[1];
+            break;
+          }
+        }
+      }
+
       if (Array.isArray(versionData.maintainers)) {
         for (const m of versionData.maintainers) {
           if (m?.name) uniqueMaintainers.add(m.name);
@@ -184,6 +213,8 @@ export class NpmAdapter implements RegistryAdapter {
       highVulnCount: 0, // TODO: Implement vulnerability checking
       githubRepo,
       registryUrl: `https://www.npmjs.com/package/${name}`,
+      deprecated,
+      replacement,
     };
     this.metaCache.set(name, { data: result, timestamp: now });
     return result;

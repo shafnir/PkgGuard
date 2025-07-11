@@ -37,6 +37,10 @@ export interface RegistryInfo {
   githubRepo?: string;
   /** Canonical registry URL for the package (for UI links) */
   registryUrl?: string;
+  /** Deprecation message (if package is deprecated) */
+  deprecated?: string;
+  /** Suggested replacement package (if available) */
+  replacement?: string;
 }
 
 /**
@@ -76,6 +80,10 @@ export interface TrustScore {
   riskFactors?: { text: string; color: "red" | "orange" }[];
   /** GitHub repo URL (if available, for direct link in UI) */
   githubRepo?: string;
+  /** Deprecation message (if package is deprecated) */
+  deprecated?: string;
+  /** Suggested replacement package (if available) */
+  replacement?: string;
 }
 
 /**

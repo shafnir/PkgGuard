@@ -2,6 +2,19 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Table of Contents
+
+1. [Project Overview](#project-overview)
+2. [Common Development Commands](#common-development-commands)
+3. [Enhanced Terminal Features](#enhanced-terminal-features)
+4. [Architecture Overview](#architecture-overview)
+5. [Configuration](#configuration)
+6. [Implementation Details](#implementation-details)
+7. [Testing](#testing)
+8. [Code Standards](#code-standards)
+9. [Security & Dependencies](#security--dependencies)
+10. [Task Management System](#task-management-system)
+
 ## Project Overview
 
 PkgGuard is a VS Code extension that protects developers from AI hallucinations and malicious package imports by analyzing package trustworthiness in real-time. It supports Python (PyPI) and JavaScript/TypeScript (npm) ecosystems.
@@ -22,8 +35,10 @@ PkgGuard is a VS Code extension that protects developers from AI hallucinations 
 ### VS Code Extension Development
 - Press F5 in VS Code to launch Extension Development Host for debugging
 - Use `npm run package` to create installable .vsix file
+- Always use context7 mcp to research for new packages and features. If you can't find what you looking for in context7, use the internet.
+- The development was migrated from CommonJS to ES6 modules, with backward compatibility. So every future development should be in modern ES6 modules.
 
-## Enhanced Terminal Features (Version 0.7.0)
+## Enhanced Terminal Features (Version 0.7.0+)
 
 PkgGuard now includes a comprehensive smart terminal with advanced development capabilities:
 
@@ -101,6 +116,58 @@ npm install                      # With security filtering
 | `scan-manifest` | Scan requirements.txt, package.json | `scan-manifest` |
 | `install-manifest` | Install dependencies with security | `install-manifest` |
 
+### Enhanced Package Details Display (v0.7.4)
+
+When installing packages, PkgGuard now provides comprehensive package analysis with detailed information matching the Hover UI:
+
+**Security Prompt Example**:
+```bash
+(.venv) [interactive] d:\Github_Projects\Test_Folder> npm i vscode
+🛡️ PkgGuard: Analyzing packages for security risks...
+🔴 vscode: Score 5
+
+🚨 WARNING: High-risk packages detected!
+❓ Proceed with risky installation?
+Options: (y)es, (N)o [default], (d)etails: 
+```
+
+**Enhanced Details Display** (Press 'd' for details):
+```bash
+📋 Package Risk Details:
+──────────────────────────────────────────────────
+
+📦 vscode (javascript)
+   🔴 Trust Score: 5
+
+   ⚠️ DEPRECATED PACKAGE
+   This package is deprecated and no longer maintained.
+   💡 Recommended replacement: @vscode/vsce
+
+   🔍 Evidence:
+   ✅ Package exists on npm registry
+   📊 Downloads: 1,234,567 /week
+   📅 Last release: 2019-05-15
+   👥 Maintainers: 2
+   🔗 Registry: https://www.npmjs.com/package/vscode
+   📂 GitHub: https://github.com/Microsoft/vscode
+
+   🔴 Risk Factors:
+     🔴 Package has not been updated in over 3 years
+     🔴 Package is deprecated and no longer maintained
+
+   💡 Recommendation:
+   This package is deprecated and should not be used in new projects.
+   Consider using the recommended replacement: @vscode/vsce
+```
+
+**Key Features of Enhanced Details**:
+- **Trust Level Indicators**: Visual emoji indicators (🟢🟡🔴⚪❓)
+- **Deprecation Warnings**: Clear warnings with replacement suggestions
+- **Comprehensive Evidence**: Registry status, downloads, release dates, maintainers
+- **Risk Factor Analysis**: Color-coded risk assessment
+- **Actionable Recommendations**: Context-aware guidance based on trust level
+- **Complete Link Support**: Registry and GitHub repository links
+
 ### Known Issues & Workarounds (v0.7.0)
 
 **Virtual Environment Path Issues**:
@@ -155,14 +222,7 @@ npm install                      # With security filtering
 4. Trust scores calculated using weighted scoring algorithm
 5. UI updated with decorations, hover data, and diagnostic warnings
 
-### Storage and Caching
-
-- **Cache Location**: `.pkgguard/.pkgguard-cache.json` (workspace-specific)
-- **Ignore File**: `.pkgguard/.pkgguard-ignore` with format `package_name # note`
-- **Global Storage**: Used when no workspace is open
-- **TTL**: 48 hours default (configurable via `pkgGuard.cacheTTL`)
-
-## Key Configuration
+## Configuration
 
 ### VS Code Settings
 - `pkgGuard.enabled` - Enable/disable extension
@@ -181,7 +241,13 @@ npm install                      # With security filtering
 ### Terminal Profile
 - **PkgGuard Smart Terminal** - Available in VS Code terminal dropdown alongside PowerShell, Git Bash, etc.
 
-## Important Implementation Details
+### Storage and Caching
+- **Cache Location**: `.pkgguard/.pkgguard-cache.json` (workspace-specific)
+- **Ignore File**: `.pkgguard/.pkgguard-ignore` with format `package_name # note`
+- **Global Storage**: Used when no workspace is open
+- **TTL**: 48 hours default (configurable via `pkgGuard.cacheTTL`)
+
+## Implementation Details
 
 ### Trust Scoring Algorithm
 - **High Trust (🟢)**: Score ≥ 80 (Python) / ≥ 75 (JavaScript)
@@ -243,9 +309,9 @@ The extension includes comprehensive terminal functionality (`src/terminal/`):
 - No telemetry - all processing happens locally
 - JSDoc comments for public methods
 
-## Security-First Dependency Management
+## Security & Dependencies
 
-### Core Principle
+### Core Security Principle
 **Always check for latest package versions through the web from official sources before implementing new packages.** This verification step ensures security and authenticity before adding dependencies to the project.
 
 ### Official Sources for Verification
@@ -281,6 +347,72 @@ The extension includes comprehensive terminal functionality (`src/terminal/`):
 - **Regularly audit dependencies for security issues**
 
 This approach aligns with PkgGuard's mission of protecting against malicious packages by applying the same security standards to our own development process.
+
+## Quick Reference
+
+### Common Commands
+```bash
+# Development
+npm run compile        # TypeScript compilation
+npm run watch         # Watch mode development
+npm run package       # Build .vsix extension
+npm run lint          # ESLint code quality checks
+npm run test          # Run Jest unit tests
+
+# Terminal Commands
+create-venv [name]    # Create virtual environment
+activate-venv [name]  # Activate virtual environment
+deactivate-venv       # Deactivate current environment
+list-venvs           # List available environments
+scan-manifest        # Scan requirements.txt/package.json
+install-manifest     # Install with security filtering
+```
+
+### VS Code Commands
+- `PkgGuard: Create Terminal` - Create PkgGuard smart terminal
+- `PkgGuard: Toggle Security Mode` - Cycle security modes
+- `PkgGuard: Clear Cache` - Clear all cached scores
+- `PkgGuard: Validate Current File` - Force re-scan current file
+
+## Recent Enhancements
+
+### Version 0.7.5 - Terminal Deprecation & Manifest Report Enhancements
+Critical improvements to terminal functionality and scoring consistency:
+- **Terminal Deprecation Warnings**: Enhanced with prominent "⚠️ DEPRECATED PACKAGE detected!" alerts during package installation
+- **Enhanced Manifest Reports**: Rich, detailed package information in manifest scan reports matching hover UI
+- **Fixed Scoring Consistency**: Non-existent packages like 'requestss' now properly show trust score N/A instead of 0
+- **Typosquatting Detection**: Terminal now correctly identifies typosquatting attempts (e.g., 'requestss' shows "potential typosquatting")
+- **Unified Error Handling**: Consistent N/A scoring for packages that fail API calls or don't exist
+- **Improved Terminal UX**: Clear visual warnings and comprehensive package analysis during installations
+
+### Version 0.7.4 - Enhanced Terminal Package Details
+Comprehensive terminal package analysis with parity to Hover UI:
+- **Enhanced Details Display**: Terminal now shows complete package information including deprecation warnings
+- **Trust Level Indicators**: Visual emoji indicators (🟢🟡🔴⚪❓) matching Hover UI
+- **Deprecation Warnings**: Full deprecation messages with replacement suggestions in terminal
+- **Comprehensive Evidence**: Registry status, downloads, release dates, maintainers, vulnerabilities
+- **Risk Factor Analysis**: Color-coded risk assessment with detailed explanations
+- **Actionable Recommendations**: Context-aware guidance based on trust level
+- **Complete Link Support**: Registry and GitHub repository links in terminal output
+
+### Version 0.7.3 - Node.js & Deprecation Support
+**Node.js Built-in Module Support**:
+- **Syntax**: `import * as path from "node:path"` 
+- **Detection**: Automatically strips `node:` prefix to identify built-in modules
+- **Scoring**: Built-in modules receive maximum trust score (100)
+- **Supported Modules**: All Node.js built-ins (fs, path, util, os, crypto, etc.)
+
+**Deprecated Package Detection**:
+- **Detection**: Extracts deprecation info from npm registry metadata
+- **Score Impact**: -60 penalty (same severity as typosquatting)
+- **UI Display**: Shows deprecation warnings in hover tooltips and terminal
+- **Replacement Suggestions**: Automatically extracts and displays replacement package recommendations
+- **Example**: `vsce` shows deprecation warning with suggestion to use `@vscode/vsce`
+
+**Terminal Autocomplete Enhancement**:
+- **Issue Fixed**: Tab completion now replaces current line instead of creating new lines
+- **Technical Fix**: Preserves VT100 escape sequences (`\r\x1b[K`) for proper cursor control
+- **Result**: Professional terminal behavior matching standard shells
 
 ## Task Management System
 

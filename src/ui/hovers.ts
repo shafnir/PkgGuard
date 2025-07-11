@@ -92,7 +92,16 @@ export class TrustHoverProvider implements vscode.HoverProvider {
     }
 
     const packageName = document.getText(wordRange);
-    const score = this.scores.get(packageName);
+    let score = this.scores.get(packageName);
+
+    // If not found and contains dots, try base package name
+    if (!score && packageName.includes(".")) {
+      const basePackage = packageName.split(".")[0];
+      if (basePackage) {
+        score = this.scores.get(basePackage);
+      }
+    }
+
     if (!score) {
       return null;
     }
@@ -130,6 +139,18 @@ export class TrustHoverProvider implements vscode.HoverProvider {
     markdown.appendMarkdown(
       `### ${levelEmoji} Trust Score: ${scoreDisplay}\n\n`,
     );
+
+    // Show deprecation warning if package is deprecated
+    if (score.deprecated) {
+      markdown.appendMarkdown(`⚠️ **DEPRECATED PACKAGE**\n\n`);
+      markdown.appendMarkdown(`${score.deprecated}\n\n`);
+
+      if (score.replacement) {
+        markdown.appendMarkdown(
+          `💡 **Recommended replacement**: \`${score.replacement}\`\n\n`,
+        );
+      }
+    }
 
     // If ignored, show ignore message and note, no risk factors or evidence
     if (score.level === "ignored") {
