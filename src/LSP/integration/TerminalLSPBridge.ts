@@ -80,7 +80,7 @@ export class TerminalLSPBridge {
       this.updateStatusBar('connected');
       this.log('LSP bridge initialized successfully', 'info');
     } catch (error) {
-      this.log(`Failed to initialize LSP client: ${error.message}`, 'error');
+      this.log(`Failed to initialize LSP client: ${(error as Error).message}`, 'error');
       this.updateStatusBar('error');
       
       if (!this.options.fallbackToLocal) {
@@ -120,7 +120,7 @@ export class TerminalLSPBridge {
             processingTime: Date.now() - startTime
           };
         } catch (error) {
-          this.log(`LSP validation failed: ${error.message}`, 'warn');
+          this.log(`LSP validation failed: ${(error as Error).message}`, 'warn');
           this.updateStatusBar('warning');
         }
       }
@@ -144,8 +144,8 @@ export class TerminalLSPBridge {
       return this.createNoOpResult(command, startTime);
 
     } catch (error) {
-      this.log(`Command validation error: ${error.message}`, 'error');
-      return this.createErrorResult(command, error, startTime);
+      this.log(`Command validation error: ${(error as Error).message}`, 'error');
+      return this.createErrorResult(command, error as Error, startTime);
     }
   }
 
@@ -168,7 +168,7 @@ export class TerminalLSPBridge {
       this.updateStatusBar('connected');
       this.log('LSP client restarted successfully', 'info');
     } catch (error) {
-      this.log(`Failed to restart LSP client: ${error.message}`, 'error');
+      this.log(`Failed to restart LSP client: ${(error as Error).message}`, 'error');
       this.updateStatusBar('error');
       throw error;
     }
@@ -317,7 +317,7 @@ export class TerminalLSPBridge {
   /**
    * Create a no-op validation result.
    */
-  private createNoOpResult(command: string, startTime: number): TerminalValidationResult {
+  private createNoOpResult(_command: string, startTime: number): TerminalValidationResult {
     return {
       isValid: true,
       packages: [],
@@ -330,7 +330,7 @@ export class TerminalLSPBridge {
   /**
    * Create an error validation result.
    */
-  private createErrorResult(command: string, error: Error, startTime: number): TerminalValidationResult {
+  private createErrorResult(_command: string, error: Error, startTime: number): TerminalValidationResult {
     return {
       isValid: false,
       packages: [],

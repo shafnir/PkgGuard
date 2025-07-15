@@ -3,10 +3,11 @@
  * Extracted from existing scoring engines and adapters for LSP server use.
  */
 
-import { RegistryInfo, TrustScore, CacheData, CacheEntry } from "../../types.js";
+import { RegistryInfo, TrustScore, CacheData } from "../../types.js";
 import { PyPIAdapter } from "../../adapters/pypi.js";
 import { NpmAdapter } from "../../adapters/npm.js";
-import { fetchGitHubStats } from "../../adapters/github.js";
+import { LSPConfigManager } from "../config/LSPConfig.js";
+import { TyposquattingDetector } from "../utils/TyposquattingDetector.js";
 
 export interface AnalysisResult {
   packageName: string;
@@ -28,51 +29,14 @@ export interface AnalysisOptions {
 export class AnalysisEngine {
   private readonly pypiAdapter = new PyPIAdapter();
   private readonly npmAdapter = new NpmAdapter();
-  private readonly cacheTTL: number;
+  private readonly configManager = LSPConfigManager.getInstance();
+  private readonly config = this.configManager.getAnalysisConfig();
+  private readonly standardLibraries = this.configManager.getStandardLibraries();
+  private readonly typosquattingDetector = new TyposquattingDetector();
   private readonly topPyPiPackages = new Set<string>();
   private readonly topPyPiDownloads: { [pkg: string]: number } = {};
-  private readonly pythonStdLib = new Set([
-    "__future__", "__main__", "abc", "aifc", "argparse", "array", "ast",
-    "asynchat", "asyncio", "asyncore", "atexit", "audioop", "base64", "bdb",
-    "binascii", "binhex", "bisect", "builtins", "bz2", "cProfile", "calendar",
-    "cgi", "cgitb", "chunk", "cmath", "cmd", "code", "codecs", "codeop",
-    "collections", "colorsys", "compileall", "concurrent", "configparser",
-    "contextlib", "contextvars", "copy", "copyreg", "crypt", "csv", "ctypes",
-    "curses", "dataclasses", "datetime", "dbm", "decimal", "difflib", "dis",
-    "distutils", "doctest", "email", "encodings", "ensurepip", "enum", "errno",
-    "faulthandler", "fcntl", "filecmp", "fileinput", "fnmatch", "formatter",
-    "fractions", "ftplib", "functools", "gc", "getopt", "getpass", "glob",
-    "grp", "gzip", "hashlib", "heapq", "hmac", "html", "http", "imaplib",
-    "imghdr", "imp", "importlib", "inspect", "io", "ipaddress", "itertools",
-    "json", "keyword", "lib2to3", "linecache", "locale", "logging", "lzma",
-    "mailbox", "mailcap", "marshal", "math", "mimetypes", "mmap", "modulefinder",
-    "multiprocessing", "netrc", "nntplib", "numbers", "operator", "optparse",
-    "os", "ossaudiodev", "parser", "pathlib", "pdb", "pickle", "pickletools",
-    "pipes", "pkgutil", "platform", "plistlib", "poplib", "posix", "pprint",
-    "profile", "pstats", "pty", "pwd", "py_compile", "pyclbr", "pydoc", "queue",
-    "quopri", "random", "re", "readline", "reprlib", "resource", "rlcompleter",
-    "runpy", "sched", "secrets", "select", "selectors", "shelve", "shlex",
-    "shutil", "signal", "site", "smtpd", "smtplib", "sndhdr", "socket",
-    "socketserver", "sqlite3", "ssl", "stat", "statistics", "string", "stringprep",
-    "struct", "subprocess", "sunau", "symbol", "symtable", "sys", "sysconfig",
-    "syslog", "tabnanny", "tarfile", "telnetlib", "tempfile", "termios", "test",
-    "textwrap", "threading", "time", "timeit", "tkinter", "token", "tokenize",
-    "trace", "traceback", "tracemalloc", "tty", "turtle", "types", "typing",
-    "unicodedata", "unittest", "urllib", "uu", "uuid", "venv", "warnings",
-    "wave", "weakref", "webbrowser", "winreg", "winsound", "wsgiref", "xdrlib",
-    "xml", "xmlrpc", "zipapp", "zipfile", "zipimport", "zlib"
-  ]);
-  
-  private readonly nodeBuiltins = new Set([
-    "assert", "buffer", "child_process", "cluster", "console", "constants",
-    "crypto", "dgram", "dns", "domain", "events", "fs", "http", "https",
-    "module", "net", "os", "path", "process", "punycode", "querystring",
-    "readline", "repl", "stream", "string_decoder", "sys", "timers", "tls",
-    "tty", "url", "util", "vm", "zlib"
-  ]);
 
-  constructor(options: { cacheTTL?: number } = {}) {
-    this.cacheTTL = options.cacheTTL || 48 * 60 * 60 * 1000; // 48 hours
+  constructor(_options: { cacheTTL?: number } = {}) {
     this.initializeTopPackages();
   }
 
@@ -152,9 +116,9 @@ export class AnalysisEngine {
    */
   private isStandardLibrary(packageName: string, ecosystem: "python" | "javascript"): boolean {
     if (ecosystem === "python") {
-      return this.pythonStdLib.has(packageName);
+      return this.standardLibraries.python.has(packageName);
     } else {
-      return this.nodeBuiltins.has(packageName) || packageName.startsWith("node:");
+      return this.standardLibraries.javascript.has(packageName) || packageName.startsWith("node:");
     }
   }
 
@@ -173,7 +137,7 @@ export class AnalysisEngine {
     if (!entry) return null;
 
     const now = Date.now();
-    const isExpired = now - entry.timestamp > this.cacheTTL;
+    const isExpired = now - entry.timestamp > this.config.cacheTTL;
     
     return isExpired ? null : entry.score;
   }
@@ -186,7 +150,33 @@ export class AnalysisEngine {
     ecosystem: "python" | "javascript"
   ): Promise<RegistryInfo> {
     const adapter = ecosystem === "python" ? this.pypiAdapter : this.npmAdapter;
-    return adapter.meta(packageName);
+    
+    try {
+      const registryInfo = await adapter.meta(packageName);
+      
+      // Ensure registryUrl is always set
+      if (!registryInfo.registryUrl) {
+        registryInfo.registryUrl = ecosystem === "python" 
+          ? `https://pypi.org/project/${packageName}/`
+          : `https://www.npmjs.com/package/${packageName}`;
+      }
+      
+      return registryInfo;
+    } catch (error) {
+      // Return default registry info on error
+      return {
+        exists: false,
+        downloads: 0,
+        latestRelease: 0,
+        maintainerCount: 0,
+        highVulnCount: 0,
+        registryUrl: ecosystem === "python"
+          ? `https://pypi.org/project/${packageName}/`
+          : `https://www.npmjs.com/package/${packageName}`,
+        deprecated: undefined,
+        replacement: undefined
+      };
+    }
   }
 
   /**
@@ -198,7 +188,7 @@ export class AnalysisEngine {
     registryInfo: RegistryInfo
   ): Promise<TrustScore> {
     const baseScore = this.calculateBaseScore(registryInfo);
-    const penalties = this.calculatePenalties(packageName, registryInfo);
+    const penalties = this.calculatePenalties(packageName, registryInfo, ecosystem);
     const bonuses = this.calculateBonuses(packageName, ecosystem, registryInfo);
 
     const finalScore = Math.max(0, Math.min(100, baseScore + bonuses - penalties));
@@ -226,27 +216,27 @@ export class AnalysisEngine {
   private calculateBaseScore(registryInfo: RegistryInfo): number {
     let score = 0;
 
-    // Package existence (40 points)
+    // Package existence
     if (registryInfo.exists) {
-      score += 40;
+      score += this.config.scoringWeights.existence;
     }
 
-    // Downloads (20 points, logarithmic scale)
+    // Downloads (logarithmic scale)
     if (registryInfo.downloads > 0) {
-      score += Math.min(20, Math.log10(registryInfo.downloads) * 2);
+      score += Math.min(this.config.scoringWeights.downloads, Math.log10(registryInfo.downloads) * 2);
     }
 
-    // Release recency (15 points)
+    // Release recency
     if (registryInfo.latestRelease) {
       const daysSinceRelease = (Date.now() - registryInfo.latestRelease) / (1000 * 60 * 60 * 24);
       if (daysSinceRelease <= 365) {
-        score += 15 * (1 - daysSinceRelease / 365);
+        score += this.config.scoringWeights.recency * (1 - daysSinceRelease / 365);
       }
     }
 
-    // Multiple maintainers (5 points)
+    // Multiple maintainers
     if (registryInfo.maintainerCount > 1) {
-      score += 5;
+      score += this.config.scoringWeights.maintainers;
     }
 
     return score;
@@ -255,15 +245,16 @@ export class AnalysisEngine {
   /**
    * Calculate penalties for risk factors.
    */
-  private calculatePenalties(packageName: string, registryInfo: RegistryInfo): number {
+  private calculatePenalties(packageName: string, registryInfo: RegistryInfo, ecosystem: "python" | "javascript"): number {
     let penalties = 0;
 
     // High severity vulnerabilities
-    penalties += registryInfo.highVulnCount * 10;
+    penalties += registryInfo.highVulnCount * this.config.scoringWeights.vulnerabilityPenalty;
 
-    // Typosquatting detection (simple check)
-    if (this.isLikelyTyposquatting(packageName)) {
-      penalties += 60;
+    // Advanced typosquatting detection
+    const typosquattingResult = this.typosquattingDetector.analyze(packageName, ecosystem);
+    if (typosquattingResult.isSuspicious) {
+      penalties += this.config.scoringWeights.typosquattingPenalty * typosquattingResult.confidence;
     }
 
     return penalties;
@@ -296,7 +287,7 @@ export class AnalysisEngine {
    * Determine trust level based on score and ecosystem.
    */
   private determineTrustLevel(score: number, ecosystem: "python" | "javascript"): "high" | "medium" | "low" {
-    const thresholds = ecosystem === "python" ? { high: 80, medium: 50 } : { high: 75, medium: 45 };
+    const thresholds = this.config.trustThresholds[ecosystem];
     
     if (score >= thresholds.high) return "high";
     if (score >= thresholds.medium) return "medium";
@@ -403,24 +394,6 @@ export class AnalysisEngine {
     };
   }
 
-  /**
-   * Simple typosquatting detection.
-   */
-  private isLikelyTyposquatting(packageName: string): boolean {
-    // Basic typosquatting patterns
-    const suspiciousPatterns = [
-      /^python-/,
-      /^py-/,
-      /^js-/,
-      /^node-/,
-      /-js$/,
-      /-py$/,
-      /\d{4,}/, // Long numbers
-      /[Il0O]{2,}/, // Confusing characters
-    ];
-
-    return suspiciousPatterns.some(pattern => pattern.test(packageName));
-  }
 
   /**
    * Initialize top packages data.

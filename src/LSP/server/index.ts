@@ -118,9 +118,11 @@ export class PkgGuardLSPServer {
       return this.handleValidateCommand(params);
     });
 
-    // Error handling
-    this.connection.onError((error) => {
-      this.connection.console.error(`LSP Server error: ${error.message}`);
+    // Error handling - LSP 9.0.1 uses different error handling
+    this.connection.onNotification('window/logMessage', (params) => {
+      if (params.type === 1) { // Error type
+        this.connection.console.error(`LSP Server error: ${params.message}`);
+      }
     });
 
     // Shutdown
@@ -201,13 +203,13 @@ export class PkgGuardLSPServer {
       };
 
     } catch (error) {
-      this.connection.console.error(`Validation error: ${error.message}`);
+      this.connection.console.error(`Validation error: ${(error as Error).message}`);
       
       // Return fallback result
       return {
         isValid: false,
         packages: [],
-        recommendation: `Analysis failed: ${error.message}. Please proceed with caution.`,
+        recommendation: `Analysis failed: ${(error as Error).message}. Please proceed with caution.`,
         processingTime: Date.now() - startTime,
         source: "fallback"
       };
@@ -298,7 +300,7 @@ export class PkgGuardLSPServer {
    */
   private generateRecommendation(
     packages: Array<{ name: string; trustLevel: string; risks: string[] }>,
-    packageManager: string
+    _packageManager: string
   ): string {
     const highRiskPackages = packages.filter(pkg => pkg.trustLevel === "low");
     const unknownPackages = packages.filter(pkg => pkg.trustLevel === "unknown");

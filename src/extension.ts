@@ -126,11 +126,36 @@ let debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 let extensionEnabled: boolean = true;
 let statusBarItem: vscode.StatusBarItem | undefined;
 let terminalMonitor: TerminalPackageMonitor | undefined;
+let outputChannel: vscode.OutputChannel | undefined;
 // let lspBridge: TerminalLSPBridge | undefined;
 
-export function activate(context: vscode.ExtensionContext) {
-  // Extension activation started
+function log(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] [PkgGuard] ${message}`;
+  
+  // Log to console (visible in Developer Tools)
+  if (level === 'error') {
+    console.error(logMessage);
+  } else if (level === 'warn') {
+    console.warn(logMessage);
+  } else {
+    console.log(logMessage);
+  }
+  
+  // Log to output channel
+  if (outputChannel) {
+    outputChannel.appendLine(`[${level.toUpperCase()}] ${message}`);
+  }
+}
 
+export function activate(context: vscode.ExtensionContext) {
+  // Create output channel for logging
+  outputChannel = vscode.window.createOutputChannel("PkgGuard");
+  context.subscriptions.push(outputChannel);
+  
+  log("Extension activation started", "info");
+
+  log("Initializing core components...");
   if (!decorators) decorators = new TrustDecorators();
   if (!hoverProvider) hoverProvider = new TrustHoverProvider();
   if (!diagnosticCollection)
@@ -138,20 +163,23 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.languages.createDiagnosticCollection("pkg-guard");
 
   // Initialize global storage
+  log("Setting up global storage...");
   const globalStoragePath = context.globalStorageUri.fsPath;
   setGlobalStoragePath(globalStoragePath);
 
   // Migrate existing workspace data to global storage (one-time migration)
   try {
     migrateWorkspaceDataToGlobal();
-  } catch {
-    // Migration warning - silent fallback
+    log("Data migration completed successfully");
+  } catch (error) {
+    log(`Data migration failed: ${(error as Error).message}`, "warn");
   }
 
   // Read initial enabled state
   extensionEnabled = vscode.workspace
     .getConfiguration()
     .get("pkgGuard.enabled", true);
+  log(`Extension enabled state: ${extensionEnabled}`);
 
   // Fetch and cache the top PyPI packages list
   fetch("https://hugovk.github.io/top-pypi-packages/top-pypi-packages.min.json")
@@ -204,16 +232,21 @@ export function activate(context: vscode.ExtensionContext) {
   const terminalEnabled = vscode.workspace
     .getConfiguration()
     .get("pkgGuard.terminal.enabled", true);
+  log(`Terminal monitoring enabled: ${terminalEnabled}`);
   if (terminalEnabled) {
+    log("Initializing terminal package monitor...");
     terminalMonitor = new TerminalPackageMonitor();
     terminalMonitor.activate(context);
+    log("Terminal package monitor activated");
   }
 
   // Register simple terminal commands
   try {
+    log("Registering simple terminal commands...");
     SimpleTerminalManager.registerCommands(context);
-    // Simple terminal commands registered successfully
+    log("Simple terminal commands registered successfully");
   } catch (error) {
+    log(`Failed to register terminal commands: ${(error as Error).message}`, "error");
     vscode.window.showErrorMessage(
       `PkgGuard: Failed to register terminal commands: ${(error as Error).message}`,
     );
@@ -221,41 +254,49 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register terminal profile provider
   try {
+    log("Registering terminal profile provider...");
     SimpleTerminalManager.registerTerminalProfileProvider(context);
-    // Terminal profile provider registered successfully
+    log("Terminal profile provider registered successfully");
   } catch (error) {
+    log(`Failed to register terminal profile provider: ${(error as Error).message}`, "error");
     vscode.window.showErrorMessage(
       `PkgGuard: Failed to register terminal profile provider: ${(error as Error).message}`,
     );
   }
 
-  // TODO: Initialize LSP bridge for enhanced terminal validation
-  // This is temporarily disabled while fixing TypeScript compilation issues
-  // const lspEnabled = vscode.workspace
-  //   .getConfiguration()
-  //   .get("pkgGuard.lsp.enabled", true);
-  // if (lspEnabled) {
-  //   try {
-  //     lspBridge = new TerminalLSPBridge(context, {
-  //       enabled: true,
-  //       fallbackToLocal: true,
-  //       showStatusIndicator: true,
-  //       logLevel: 'info'
-  //     });
-  //     
-  //     // Initialize LSP bridge asynchronously
-  //     lspBridge.initialize().catch(error => {
-  //       console.warn('LSP bridge initialization failed:', (error as Error).message);
-  //       // Continue without LSP - will fall back to local validation
-  //     });
-  //     
-  //     // Add LSP bridge to context subscriptions for cleanup
-  //     context.subscriptions.push(lspBridge);
-  //   } catch (error) {
-  //     console.warn('Failed to create LSP bridge:', (error as Error).message);
-  //     // Continue without LSP - existing terminal functionality will work
-  //   }
-  // }
+  // Initialize LSP bridge for enhanced terminal validation
+  const lspEnabled = vscode.workspace
+    .getConfiguration()
+    .get("pkgGuard.lsp.enabled", true);
+  log(`LSP integration enabled: ${lspEnabled}`);
+  if (lspEnabled) {
+    try {
+      log("Initializing LSP bridge...");
+      // NOTE: LSP bridge is temporarily disabled due to TypeScript compilation issues
+      // but we log the attempt for diagnostic purposes
+      log("LSP bridge initialization skipped (TypeScript compilation issues)", "warn");
+      
+      // TODO: Uncomment when TypeScript issues are resolved
+      // lspBridge = new TerminalLSPBridge(context, {
+      //   enabled: true,
+      //   fallbackToLocal: true,
+      //   showStatusIndicator: true,
+      //   logLevel: 'info'
+      // });
+      // 
+      // // Initialize LSP bridge asynchronously
+      // lspBridge.initialize().catch(error => {
+      //   log(`LSP bridge initialization failed: ${(error as Error).message}`, "warn");
+      //   // Continue without LSP - will fall back to local validation
+      // });
+      // 
+      // // Add LSP bridge to context subscriptions for cleanup
+      // context.subscriptions.push(lspBridge);
+    } catch (error) {
+      log(`Failed to create LSP bridge: ${(error as Error).message}`, "warn");
+      // Continue without LSP - existing terminal functionality will work
+    }
+  }
 
   // Register hover provider for Python and JavaScript/TypeScript
   context.subscriptions.push(
@@ -458,6 +499,64 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
+  // Register show diagnostics command
+  context.subscriptions.push(
+    vscode.commands.registerCommand("pkg-guard.showDiagnostics", () => {
+      const diagnostics = {
+        extensionEnabled,
+        version: "0.7.5",
+        documentsScanned: vscode.window.visibleTextEditors.length,
+        cacheEnabled: true,
+        terminalEnabled: vscode.workspace.getConfiguration('pkgGuard').get('terminal.enabled', true),
+        lspEnabled: vscode.workspace.getConfiguration('pkgGuard').get('lsp.enabled', true),
+        securityMode: vscode.workspace.getConfiguration('pkgGuard').get('securityMode', 'interactive'),
+        supportedLanguages: ['python', 'javascript', 'typescript']
+      };
+      
+      const message = `PkgGuard Diagnostics:
+• Status: ${diagnostics.extensionEnabled ? 'Enabled' : 'Disabled'}
+• Version: ${diagnostics.version}
+• Documents scanned: ${diagnostics.documentsScanned}
+• Cache enabled: ${diagnostics.cacheEnabled}
+• Terminal monitoring: ${diagnostics.terminalEnabled}
+• LSP enabled: ${diagnostics.lspEnabled}
+• Security mode: ${diagnostics.securityMode}
+• Supported languages: ${diagnostics.supportedLanguages.join(', ')}`;
+      
+      vscode.window.showInformationMessage(message, { modal: true });
+    }),
+  );
+
+  // Register validate current file command
+  context.subscriptions.push(
+    vscode.commands.registerCommand("pkg-guard.validateCurrentFile", async () => {
+      const activeEditor = vscode.window.activeTextEditor;
+      if (!activeEditor) {
+        vscode.window.showWarningMessage("PkgGuard: No active editor found.");
+        return;
+      }
+      
+      const document = activeEditor.document;
+      if (!["python", "javascript", "typescript"].includes(document.languageId)) {
+        vscode.window.showWarningMessage(
+          `PkgGuard: Language '${document.languageId}' is not supported. Supported languages: Python, JavaScript, TypeScript.`
+        );
+        return;
+      }
+      
+      vscode.window.showInformationMessage(
+        `PkgGuard: Validating ${document.fileName}...`
+      );
+      
+      // Force validation without debounce
+      await validateDocument(document);
+      
+      vscode.window.showInformationMessage(
+        `PkgGuard: Validation completed for ${path.basename(document.fileName)}.`
+      );
+    }),
+  );
+
   // Status bar toggle button
   statusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
@@ -600,9 +699,14 @@ export function activate(context: vscode.ExtensionContext) {
       }
     }),
   );
+  
+  log("Extension activation completed successfully");
+  log("Commands registered, listeners attached, ready for package validation");
 }
 
 export function deactivate() {
+  log("Extension deactivation started");
+  
   // Clean up decorations
   if (decorators) {
     vscode.window.visibleTextEditors.forEach((editor) => {
@@ -621,6 +725,13 @@ export function deactivate() {
   decorators = undefined;
   diagnosticCollection = undefined;
   terminalMonitor = undefined;
+  
+  if (outputChannel) {
+    outputChannel.dispose();
+    outputChannel = undefined;
+  }
+  
+  log("Extension deactivation completed");
 }
 
 /**
@@ -649,7 +760,12 @@ async function retryWithBackoff<T>(
  * Detect, validate, score, and decorate imports in a Python document.
  */
 async function validateAndDecorate(doc: vscode.TextDocument) {
-  if (!extensionEnabled) return;
+  if (!extensionEnabled) {
+    log("Extension disabled, skipping validation");
+    return;
+  }
+  
+  log(`Validating document: ${doc.fileName} (${doc.languageId})`);
   // Always load cache from global storage before scoring
   loadCacheFile();
   const editor = vscode.window.visibleTextEditors.find(

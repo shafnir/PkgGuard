@@ -21,10 +21,21 @@ PkgGuard is a VS Code extension that protects developers from malicious package 
 - `npm run compile` - TypeScript compilation
 - `npm run watch` - Watch mode development 
 - `npm run package` - Build .vsix extension
-- `npm run lint` - ESLint code quality checks
+- `npm run lint` - ESLint code quality checks (0 errors required)
 - `npm run test` - Jest unit tests
+- `npm run test:lsp` - LSP-specific unit tests
+- `npm run build:lsp` - Build LSP server and client components
 - Always verify packages through official sources before adding dependencies
 - Use ES6 modules for all new development
+
+## Debugging Commands
+
+- `PkgGuard: Show Diagnostics` - Extension health and status
+- `PkgGuard: Validate Current File` - Force file re-validation
+- `PkgGuard: Clear Cache` - Clear package cache
+- `PkgGuard: Toggle Security Mode` - Cycle terminal security modes
+- Developer Console: `Help` → `Toggle Developer Tools` → `Console`
+- Output Channel: `View` → `Output` → Select "PkgGuard"
 
 ## Development Guidelines
 

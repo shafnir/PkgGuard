@@ -71,6 +71,7 @@ export class FaultTolerantClient {
   private authToken: string;
   private state: ClientState = ClientState.Stopped;
   private healthCheckInterval: NodeJS.Timeout | null = null;
+  private retryTimeout: NodeJS.Timeout | null = null;
   private retryCount = 0;
   private readonly maxRetries = 3;
   private readonly retryDelay = 1000; // Start with 1 second
@@ -123,7 +124,7 @@ export class FaultTolerantClient {
       this.outputChannel.appendLine('LSP Client started successfully');
     } catch (error) {
       this.state = ClientState.Failed;
-      this.outputChannel.appendLine(`Failed to start LSP Client: ${error.message}`);
+      this.outputChannel.appendLine(`Failed to start LSP Client: ${(error as Error).message}`);
       
       // Schedule retry with exponential backoff
       this.scheduleRetry();
@@ -136,13 +137,19 @@ export class FaultTolerantClient {
   async stop(): Promise<void> {
     this.state = ClientState.Stopped;
     this.stopHealthMonitoring();
+    
+    // Clear retry timeout
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout);
+      this.retryTimeout = null;
+    }
 
     if (this.client) {
       try {
         await this.client.stop();
         this.outputChannel.appendLine('LSP Client stopped');
       } catch (error) {
-        this.outputChannel.appendLine(`Error stopping LSP Client: ${error.message}`);
+        this.outputChannel.appendLine(`Error stopping LSP Client: ${(error as Error).message}`);
       }
       this.client = null;
     }
@@ -180,7 +187,7 @@ export class FaultTolerantClient {
       return this.validateLocally(command, startTime);
 
     } catch (error) {
-      this.outputChannel.appendLine(`Validation error: ${error.message}`);
+      this.outputChannel.appendLine(`Validation error: ${(error as Error).message}`);
       return this.validateLocally(command, startTime);
     }
   }
@@ -238,9 +245,6 @@ export class FaultTolerantClient {
     });
 
     await this.client.start();
-    
-    // Wait for ready state
-    await this.client.onReady();
   }
 
   /**
@@ -266,7 +270,7 @@ export class FaultTolerantClient {
 
       return result as ValidateCommandResult;
     } catch (error) {
-      this.outputChannel.appendLine(`Server request failed: ${error.message}`);
+      this.outputChannel.appendLine(`Server request failed: ${(error as Error).message}`);
       return null;
     }
   }
@@ -387,7 +391,7 @@ export class FaultTolerantClient {
       // Simple health check with a minimal command
       await this.validateWithServer('echo "health check"');
     } catch (error) {
-      this.outputChannel.appendLine(`Health check failed: ${error.message}`);
+      this.outputChannel.appendLine(`Health check failed: ${(error as Error).message}`);
       this.state = ClientState.Failed;
       this.scheduleRetry();
     }
@@ -407,7 +411,13 @@ export class FaultTolerantClient {
 
     this.outputChannel.appendLine(`Scheduling retry ${this.retryCount}/${this.maxRetries} in ${delay}ms`);
     
-    setTimeout(() => {
+    // Clear existing retry timeout
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout);
+    }
+    
+    this.retryTimeout = setTimeout(() => {
+      this.retryTimeout = null;
       this.start();
     }, delay);
   }

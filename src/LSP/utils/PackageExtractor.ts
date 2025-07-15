@@ -106,7 +106,7 @@ export class PackageExtractor {
     for (const { pattern, manager, flagsPattern } of pythonPatterns) {
       const match = command.match(pattern);
       if (match) {
-        const packages = this.parsePythonPackageSpecs(match[1], flagsPattern);
+        const packages = this.parsePythonPackageSpecs(match[1] || "", flagsPattern);
         return {
           packages,
           command,
@@ -181,7 +181,7 @@ export class PackageExtractor {
     for (const { pattern, manager, flagsPattern } of jsPatterns) {
       const match = command.match(pattern);
       if (match) {
-        const packages = this.parseJavaScriptPackageSpecs(match[1], flagsPattern);
+        const packages = this.parseJavaScriptPackageSpecs(match[1] || "", flagsPattern);
         return {
           packages,
           command,
@@ -299,22 +299,22 @@ export class PackageExtractor {
     // Handle extras (e.g., package[extra])
     const extraMatch = name.match(/^([^[]+)\[([^\]]+)\]$/);
     if (extraMatch) {
-      name = extraMatch[1];
-      flags.push(`extra:${extraMatch[2]}`);
+      name = extraMatch[1] || "";
+      flags.push(`extra:${extraMatch[2] || ""}`);
     }
 
     // Handle URLs and VCS
     if (name.includes('@')) {
       const parts = name.split('@');
-      name = parts[0];
-      version = parts[1];
+      name = parts[0] || "";
+      version = parts[1] || "";
     }
 
     // Handle git+https:// URLs
     if (name.startsWith('git+') || name.startsWith('https://') || name.startsWith('http://')) {
       const match = name.match(/\/([^\/]+?)(?:\.git)?(?:#|$)/);
       if (match) {
-        name = match[1];
+        name = match[1] || "";
         flags.push('vcs');
       }
     }
@@ -323,7 +323,7 @@ export class PackageExtractor {
     if (name.startsWith('file://')) {
       const match = name.match(/\/([^\/]+?)(?:\.tar\.gz|\.zip|\.whl)?$/);
       if (match) {
-        name = match[1];
+        name = match[1] || "";
         flags.push('local');
       }
     }
@@ -370,7 +370,7 @@ export class PackageExtractor {
     if (name.includes('://')) {
       const match = name.match(/\/([^\/]+?)(?:\.git)?(?:#|$)/);
       if (match) {
-        name = match[1];
+        name = match[1] || "";
         flags.push('vcs');
       }
     }
@@ -379,7 +379,7 @@ export class PackageExtractor {
     if (name.startsWith('file://')) {
       const match = name.match(/\/([^\/]+?)(?:\.tar\.gz|\.tgz)?$/);
       if (match) {
-        name = match[1];
+        name = match[1] || "";
         flags.push('local');
       }
     }
@@ -388,7 +388,7 @@ export class PackageExtractor {
     if (name.startsWith('./') || name.startsWith('../')) {
       const match = name.match(/\/([^\/]+?)$/);
       if (match) {
-        name = match[1];
+        name = match[1] || "";
         flags.push('local');
       }
     }

@@ -2,7 +2,7 @@
   "name": "pkgguard",
   "displayName": "PkgGuard",
   "description": "VS Code extension that guards against hallucinated or malicious package imports",
-  "version": "0.7.5",
+  "version": "0.7.6",
   "repository": {
     "type": "git",
     "url": "https://github.com/shafnir/PkgGuard"
@@ -114,6 +114,46 @@
           "type": "number",
           "default": 3,
           "description": "Number of retry attempts for LSP requests"
+        },
+        "pkgGuard.lsp.maxRequestsPerMinute": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum requests per minute for LSP rate limiting"
+        },
+        "pkgGuard.lsp.authTokenLength": {
+          "type": "number",
+          "default": 64,
+          "description": "Length of authentication tokens in characters"
+        },
+        "pkgGuard.lsp.cleanupIntervalMs": {
+          "type": "number",
+          "default": 60000,
+          "description": "Cleanup interval for rate limiting in milliseconds"
+        },
+        "pkgGuard.lsp.retryDelayMs": {
+          "type": "number",
+          "default": 1000,
+          "description": "Initial retry delay in milliseconds"
+        },
+        "pkgGuard.lsp.healthCheckIntervalMs": {
+          "type": "number",
+          "default": 30000,
+          "description": "Health check interval in milliseconds"
+        },
+        "pkgGuard.lsp.minPackageNameLength": {
+          "type": "number",
+          "default": 3,
+          "description": "Minimum package name length for suspicion detection"
+        },
+        "pkgGuard.lsp.maxNumberSequenceLength": {
+          "type": "number",
+          "default": 4,
+          "description": "Maximum number sequence length before flagging as suspicious"
+        },
+        "pkgGuard.lsp.knownMaliciousPackages": {
+          "type": "array",
+          "default": [],
+          "description": "List of known malicious packages for local validation"
         }
       }
     },

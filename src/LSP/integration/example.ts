@@ -172,7 +172,7 @@ export class LSPIntegratedTerminal {
           await this.lspBridge.restartClient();
           vscode.window.showInformationMessage('LSP client restarted successfully');
         } catch (error) {
-          vscode.window.showErrorMessage(`Failed to restart LSP client: ${error.message}`);
+          vscode.window.showErrorMessage(`Failed to restart LSP client: ${(error as Error).message}`);
         }
       }
     );
@@ -183,7 +183,7 @@ export class LSPIntegratedTerminal {
       async () => {
         const command = await vscode.window.showInputBox({
           prompt: 'Enter command to validate',
-          placeholder: 'pip install numpy'
+          placeHolder: 'pip install numpy'
         });
         
         if (command) {
