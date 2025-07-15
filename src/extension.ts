@@ -40,6 +40,7 @@ import { JavaScriptScoringEngine } from "./scoring/javascript";
 import { TOP_NPM_PACKAGES } from "./adapters/npm-top";
 import { TerminalPackageMonitor } from "./terminal/shell-integration";
 import { SimpleTerminalManager } from "./terminal/simple-terminal";
+// import { TerminalLSPBridge } from "./LSP/integration/TerminalLSPBridge";
 
 interface TopPyPIResponse {
   rows: { project: string; download_count: number }[];
@@ -125,6 +126,7 @@ let debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 let extensionEnabled: boolean = true;
 let statusBarItem: vscode.StatusBarItem | undefined;
 let terminalMonitor: TerminalPackageMonitor | undefined;
+// let lspBridge: TerminalLSPBridge | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
   // Extension activation started
@@ -226,6 +228,34 @@ export function activate(context: vscode.ExtensionContext) {
       `PkgGuard: Failed to register terminal profile provider: ${(error as Error).message}`,
     );
   }
+
+  // TODO: Initialize LSP bridge for enhanced terminal validation
+  // This is temporarily disabled while fixing TypeScript compilation issues
+  // const lspEnabled = vscode.workspace
+  //   .getConfiguration()
+  //   .get("pkgGuard.lsp.enabled", true);
+  // if (lspEnabled) {
+  //   try {
+  //     lspBridge = new TerminalLSPBridge(context, {
+  //       enabled: true,
+  //       fallbackToLocal: true,
+  //       showStatusIndicator: true,
+  //       logLevel: 'info'
+  //     });
+  //     
+  //     // Initialize LSP bridge asynchronously
+  //     lspBridge.initialize().catch(error => {
+  //       console.warn('LSP bridge initialization failed:', (error as Error).message);
+  //       // Continue without LSP - will fall back to local validation
+  //     });
+  //     
+  //     // Add LSP bridge to context subscriptions for cleanup
+  //     context.subscriptions.push(lspBridge);
+  //   } catch (error) {
+  //     console.warn('Failed to create LSP bridge:', (error as Error).message);
+  //     // Continue without LSP - existing terminal functionality will work
+  //   }
+  // }
 
   // Register hover provider for Python and JavaScript/TypeScript
   context.subscriptions.push(

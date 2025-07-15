@@ -94,6 +94,26 @@
           "type": "boolean",
           "default": true,
           "description": "Enable terminal package monitoring for regular VS Code terminals"
+        },
+        "pkgGuard.lsp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable LSP server for enhanced package validation"
+        },
+        "pkgGuard.lsp.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to custom LSP server executable (empty for default)"
+        },
+        "pkgGuard.lsp.timeout": {
+          "type": "number",
+          "default": 5000,
+          "description": "LSP request timeout in milliseconds"
+        },
+        "pkgGuard.lsp.retries": {
+          "type": "number",
+          "default": 3,
+          "description": "Number of retry attempts for LSP requests"
         }
       }
     },
@@ -113,7 +133,12 @@
     "lint": "eslint src",
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
     "package": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --external:node-pty --format=esm --platform=node",
-    "pretest": "npm run compile"
+    "pretest": "npm run compile",
+    "build:lsp": "node src/LSP/scripts/build.js",
+    "build:lsp:server": "esbuild src/LSP/server/index.ts --bundle --outfile=dist/lsp-server.js --external:vscode --format=esm --platform=node",
+    "build:lsp:client": "esbuild src/LSP/client/FaultTolerantClient.ts --bundle --outfile=dist/lsp-client.js --external:vscode --format=esm --platform=node",
+    "start:lsp": "node dist/lsp-server.js",
+    "test:lsp": "npm test -- --testPathPattern=LSP"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",
@@ -136,6 +161,9 @@
     "node-fetch": "^3.3.2",
     "node-pty": "^1.0.0",
     "sqlite3": "^5.1.7",
+    "vscode-languageclient": "^9.0.1",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12",
     "ws": "^8.18.3"
   }
 }
